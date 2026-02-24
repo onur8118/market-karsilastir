@@ -60,81 +60,120 @@ function parsePrice(priceStr) {
     return isNaN(val) ? null : val;
 }
 
-// Scrape a single category page
-async function scrapeCategoryPage(url) {
-    let results = [];
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml',
-                'Accept-Language': 'tr-TR,tr;q=0.9',
-            }
-        });
+// Scrape all products for a category across multiple pages
+async function scrapeCategory(db, baseUrl) {
+    let page = 1;
+    let categoryProductsCount = 0;
+    const catSlug = baseUrl.split('/').pop().replace(/-c-\d+$/, '');
 
-        if (!response.ok) {
-            console.warn(`  ⚠️ Sayfa yüklenemedi: ${url} (${response.status})`);
-            return results;
-        }
+    while (page <= 50) { // Safety limit of 50 pages
+        const url = `${baseUrl}?page=${page}`;
+        console.log(`    📄 Sayfa ${page}: ${url}`);
 
-        const html = await response.text();
-        const $ = cheerio.load(html);
-
-        // ŞOK's product structure: links like /product-slug-p-ID with price text inside
-        $('a[href*="-p-"]').each((_, el) => {
-            const $el = $(el);
-            const href = $el.attr('href') || '';
-            const fullUrl = href.startsWith('http') ? href : `https://www.sokmarket.com.tr${href}`;
-            const textContent = $el.text().trim();
-
-            if (!textContent || textContent.length < 5) return;
-
-            // Extract prices from text: "Product Name55,00₺49,90₺" or "Product Name29,90₺"
-            const pricePattern = /(\d{1,5}[,\.]\d{2})\s*₺/g;
-            const priceMatches = [...textContent.matchAll(pricePattern)];
-
-            if (priceMatches.length === 0) return;
-
-            // Product name = text before the first price
-            const firstPriceIndex = textContent.indexOf(priceMatches[0][0]);
-            const name = textContent.substring(0, firstPriceIndex).trim();
-
-            if (!name || name.length < 3) return;
-
-            let price = null;
-            let originalPrice = null;
-
-            if (priceMatches.length >= 2) {
-                // First price is original (higher), second is current (discounted)
-                originalPrice = parsePrice(priceMatches[0][1]);
-                price = parsePrice(priceMatches[1][1]);
-                // Make sure price < originalPrice
-                if (price && originalPrice && price > originalPrice) {
-                    [price, originalPrice] = [originalPrice, price];
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml',
+                    'Accept-Language': 'tr-TR,tr;q=0.9',
                 }
-            } else {
-                price = parsePrice(priceMatches[0][1]);
+            });
+
+            if (!response.ok) {
+                console.warn(`    ⚠️ Sayfa yüklenemedi: ${url} (${response.status})`);
+                break;
             }
 
-            if (!price || price <= 0) return;
+            const html = await response.text();
+            const $ = cheerio.load(html);
+            let pageProducts = 0;
 
-            // Get image
-            const img = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+            // ŞOK's product structure: links like /product-slug-p-ID with price text inside
+            const productLinks = $('a[href*="-p-"]');
+            if (productLinks.length === 0) {
+                console.log(`    ⏹️ Daha fazla ürün bulunamadı (Sayfa ${page})`);
+                break;
+            }
 
-            const brand = extractBrand(name);
-            const category = guessCategory(url, name);
+            productLinks.each((_, el) => {
+                const $el = $(el);
+                const href = $el.attr('href') || '';
+                const fullUrl = href.startsWith('http') ? href : `https://www.sokmarket.com.tr${href}`;
+                const textContent = $el.text().trim();
 
-            results.push({ name, brand, category, price, originalPrice, imageUrl: img, sourceUrl: fullUrl });
-        });
+                if (!textContent || textContent.length < 5) return;
 
-    } catch (err) {
-        console.warn(`  ❌ Hata: ${url}`, err.message);
+                // Extract prices from text: "Product Name55,00₺49,90₺" or "Product Name29,90₺"
+                const pricePattern = /(\d{1,5}[,\.]\d{2})\s*₺/g;
+                const priceMatches = [...textContent.matchAll(pricePattern)];
+
+                if (priceMatches.length === 0) return;
+
+                // Product name = text before the first price
+                const firstPriceIndex = textContent.indexOf(priceMatches[0][0]);
+                const name = textContent.substring(0, firstPriceIndex).trim();
+
+                if (!name || name.length < 3) return;
+
+                let price = null;
+                let originalPrice = null;
+
+                if (priceMatches.length >= 2) {
+                    originalPrice = parsePrice(priceMatches[0][1]);
+                    price = parsePrice(priceMatches[1][1]);
+                    if (price && originalPrice && price > originalPrice) {
+                        [price, originalPrice] = [originalPrice, price];
+                    }
+                } else {
+                    price = parsePrice(priceMatches[0][1]);
+                }
+
+                if (!price || price <= 0) return;
+
+                const img = $el.find('img').attr('src') || $el.find('img').attr('data-src') || '';
+                const brand = extractBrand(name);
+                const category = guessCategory(baseUrl, name);
+
+                const productId = upsertProduct(db, {
+                    name,
+                    brand,
+                    category,
+                    imageUrl: img,
+                    sourceUrl: fullUrl,
+                });
+
+                insertPrice(db, {
+                    productId,
+                    marketId: 'sok',
+                    price,
+                    originalPrice,
+                });
+
+                pageProducts++;
+                categoryProductsCount++;
+            });
+
+            console.log(`      → ${pageProducts} yeni ürün`);
+
+            if (pageProducts < 10) { // Likely reached end or partial page
+                break;
+            }
+
+            // Rate limiting between pages
+            await sleep(1000);
+            page++;
+
+        } catch (err) {
+            console.warn(`    ❌ Sayfa hatası: ${url}`, err.message);
+            break;
+        }
     }
-    return results;
+
+    return categoryProductsCount;
 }
 
 export async function scrapeSok(db) {
-    console.log('\n🟡 ŞOK Market scraping başlıyor...');
+    console.log('\n🟡 ŞOK Market scraping başlıyor (Gelişmiş - Tüm Sayfalar)...');
 
     const categoryUrls = [
         'https://www.sokmarket.com.tr/sut-ve-sut-urunleri-c-460',
@@ -146,47 +185,30 @@ export async function scrapeSok(db) {
         'https://www.sokmarket.com.tr/kisisel-bakim-ve-kozmetik-c-20395',
         'https://www.sokmarket.com.tr/meyve-ve-sebze-c-20',
         'https://www.sokmarket.com.tr/et-ve-tavuk-ve-sarkuteri-c-160',
+        'https://www.sokmarket.com.tr/kagit-urunler-c-20875',
+        'https://www.sokmarket.com.tr/anne-bebek-ve-cocuk-c-20634',
+        'https://www.sokmarket.com.tr/ev-ve-yasam-c-20898',
     ];
 
     let totalProducts = 0;
-    let totalPrices = 0;
 
     for (const url of categoryUrls) {
         const catSlug = url.split('/').pop().replace(/-c-\d+$/, '');
         console.log(`  📂 Kategori: ${catSlug}`);
 
-        const products = await scrapeCategoryPage(url);
+        const count = await scrapeCategory(db, url);
+        totalProducts += count;
 
-        for (const p of products) {
-            const productId = upsertProduct(db, {
-                name: p.name,
-                brand: p.brand,
-                category: p.category,
-                imageUrl: p.imageUrl,
-                sourceUrl: p.sourceUrl,
-            });
+        console.log(`    ✅ Kategori tamamlandı: ${count} toplam ürün`);
 
-            insertPrice(db, {
-                productId,
-                marketId: 'sok',
-                price: p.price,
-                originalPrice: p.originalPrice,
-            });
-
-            totalPrices++;
-        }
-
-        totalProducts += products.length;
-        console.log(`    → ${products.length} ürün bulundu`);
-
-        // Rate limiting
-        await sleep(1500);
+        // Rate limiting between categories
+        await sleep(2000);
     }
 
     saveDb();
-    console.log(`  ✅ ŞOK tamamlandı: ${totalProducts} ürün, ${totalPrices} fiyat`);
+    console.log(`  ✅ ŞOK tamamlandı: ${totalProducts} ürün çekildi`);
 
-    return { productsFound: totalProducts, pricesUpdated: totalPrices };
+    return { productsFound: totalProducts, pricesUpdated: totalProducts };
 }
 
 function sleep(ms) {
