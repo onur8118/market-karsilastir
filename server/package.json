@@ -1,0 +1,19 @@
+{
+    "name": "fiyatradar-server",
+    "version": "1.0.0",
+    "description": "FiyatRadar backend - market fiyat scraper",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "start": "node index.js",
+        "scrape": "node run-scrape.js"
+    },
+    "dependencies": {
+        "sql.js": "^1.11.0",
+        "cheerio": "^1.0.0",
+        "cors": "^2.8.5",
+        "express": "^4.21.0",
+        "node-cron": "^3.0.3",
+        "puppeteer": "^23.0.0"
+    }
+}
