@@ -18,7 +18,17 @@ app.use(express.json());
 app.get('/api/products', async (req, res) => {
     try {
         const db = await getDb();
-        const { q, category, market, sort } = req.query;
+        const { q, category, market, sort, page = 1, limit = 60 } = req.query;
+        const offset = (page - 1) * limit;
+
+        let queryCount = `
+      SELECT COUNT(DISTINCT p.id) as total
+      FROM products p
+      LEFT JOIN prices pr ON p.id = pr.product_id AND pr.date = (
+        SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
+      )
+      WHERE pr.price IS NOT NULL
+    `;
 
         let query = `
       SELECT 
@@ -30,30 +40,115 @@ app.get('/api/products', async (req, res) => {
         SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
       )
       LEFT JOIN markets m ON pr.market_id = m.id
-      WHERE 1=1
+      WHERE pr.price IS NOT NULL
     `;
 
         const params = [];
 
         if (q) {
-            query += ` AND (LOWER(p.name) LIKE ? OR LOWER(p.brand) LIKE ? OR p.barcode LIKE ?)`;
             const searchTerm = `%${q.toLowerCase()}%`;
+            const searchClause = ` AND (LOWER(p.name) LIKE ? OR LOWER(p.brand) LIKE ? OR p.barcode LIKE ?)`;
+            query += searchClause;
+            queryCount += searchClause;
             params.push(searchTerm, searchTerm, searchTerm);
         }
 
         if (category && category !== 'hepsi') {
-            query += ` AND p.category = ?`;
+            const catClause = ` AND p.category = ?`;
+            query += catClause;
+            queryCount += catClause;
             params.push(category);
         }
 
         if (market) {
-            query += ` AND pr.market_id = ?`;
+            const marketClause = ` AND pr.market_id = ?`;
+            query += marketClause;
+            queryCount += marketClause;
             params.push(market);
         }
 
+        // Get total count first
+        const countResult = db.exec(queryCount, params);
+        const total = countResult[0]?.values[0]?.[0] || 0;
+
         query += ` ORDER BY p.name, pr.price ASC`;
 
-        const result = db.exec(query, params);
+        // We need to fetch all matching products to group them correctly if we want perfect pagination,
+        // but for now, let's just limit the raw rows and handle the grouping. 
+        // Note: Grouping products after raw FETCH might be tricky with LIMIT if one product has multiple market prices.
+        // A better way is to paginate the products first, then join prices.
+
+        // Refined query for better pagination:
+        let paginatedProductsQuery = `
+            SELECT p.id
+            FROM products p
+            LEFT JOIN prices pr ON p.id = pr.product_id AND pr.date = (
+                SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
+            )
+            WHERE pr.price IS NOT NULL
+        `;
+
+        const paginatedParams = [];
+        if (q) {
+            const searchTerm = `%${q.toLowerCase()}%`;
+            paginatedProductsQuery += ` 
+                AND (
+                    LOWER(p.name) LIKE ? 
+                    OR LOWER(p.brand) LIKE ? 
+                    OR p.barcode LIKE ?
+                    OR p.id IN (
+                        SELECT pr3.product_id 
+                        FROM prices pr3 
+                        JOIN markets m3 ON pr3.market_id = m3.id 
+                        WHERE LOWER(m3.name) LIKE ?
+                    )
+                )`;
+            paginatedParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
+        }
+        if (category && category !== 'hepsi') {
+            paginatedProductsQuery += ` AND p.category = ?`;
+            paginatedParams.push(category);
+        }
+        if (market) {
+            paginatedProductsQuery += ` AND pr.market_id = ?`;
+            paginatedParams.push(market);
+        }
+
+        paginatedProductsQuery += ` GROUP BY p.id`;
+
+        if (sort === 'price-asc') {
+            paginatedProductsQuery += ` ORDER BY MIN(pr.price) ASC`;
+        } else if (sort === 'price-desc') {
+            paginatedProductsQuery += ` ORDER BY MIN(pr.price) DESC`;
+        } else {
+            paginatedProductsQuery += ` ORDER BY p.name ASC`;
+        }
+
+        paginatedProductsQuery += ` LIMIT ? OFFSET ?`;
+        paginatedParams.push(parseInt(limit), parseInt(offset));
+
+        const productIdsResult = db.exec(paginatedProductsQuery, paginatedParams);
+        if (!productIdsResult.length || !productIdsResult[0].values.length) {
+            return res.json({ products: [], pagination: { total, page: parseInt(page), limit: parseInt(limit), hasMore: false } });
+        }
+
+        const productIds = productIdsResult[0].values.map(v => v[0]);
+        const idsPlaceholder = productIds.map(() => '?').join(',');
+
+        const finalQuery = `
+            SELECT 
+                p.id, p.name, p.brand, p.category, p.barcode, p.image_url, p.source_url,
+                pr.market_id, pr.price, pr.original_price, pr.date,
+                m.name as market_name, m.color as market_color
+            FROM products p
+            LEFT JOIN prices pr ON p.id = pr.product_id AND pr.date = (
+                SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
+            )
+            LEFT JOIN markets m ON pr.market_id = m.id
+            WHERE p.id IN (${idsPlaceholder})
+        `;
+
+        const result = db.exec(finalQuery, productIds);
 
         if (!result.length || !result[0].values.length) {
             return res.json([]);
@@ -108,7 +203,15 @@ app.get('/api/products', async (req, res) => {
             });
         }
 
-        res.json(products);
+        res.json({
+            products,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                hasMore: offset + products.length < total
+            }
+        });
     } catch (err) {
         console.error('API hatası:', err);
         res.status(500).json({ error: err.message });

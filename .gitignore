@@ -6,3 +6,14 @@ fiyatradar.db
 server/fiyatradar.db
 .env
 .vscode
+server/test-*.js
+server/debug-*.js
+server/discover-*.js
+server/check-*.js
+server/fix_categories.js
+server/*.png
+server/*.html
+server/*.json
+server/server.log
+!server/package.json
+!server/package-lock.json

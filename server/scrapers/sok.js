@@ -27,7 +27,9 @@ function guessCategory(url, name) {
     if (/deterjan|çamaşır|bulaşık|domestos|fairy|temiz|çöp/.test(n)) return 'temizlik';
     if (/şampuan|sabun|diş|deodorant|krem|bakım|duş/.test(n)) return 'kisisel-bakim';
     if (/makarna|pirinç|un |yağ|tuz|şeker|salça|konserve|çorba|bulgur/.test(n)) return 'temel-gida';
+    if (/dondurma/.test(n)) return 'atistirmalik';
     return 'temel-gida';
+
 }
 
 function extractBrand(name) {

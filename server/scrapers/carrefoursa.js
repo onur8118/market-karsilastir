@@ -27,7 +27,11 @@ function guessCategory(name) {
     if (/deterjan|çamaşır|bulaşık|domestos|fairy|temiz/.test(n)) return 'temizlik';
     if (/şampuan|sabun|diş|deodorant|krem|bakım/.test(n)) return 'kisisel-bakim';
     if (/makarna|pirinç|un |yağ|tuz|şeker|salça|konserve|çorba/.test(n)) return 'temel-gida';
-    if (/dondurma/.test(n)) return 'dondurulmus';
+    if (/dondurma/.test(n)) return 'atistirmalik';
+    if (/muz|elma|armut|portakal|domates|salatalık|biber|marul|patates|soğan|meyve|sebze|patlıcan|kabak|çilek|kavun|karpuz|kiraz|üzüm/.test(n)) return 'meyve-sebze';
+    if (/dana|kuzu|kıyma|kuşbaşı|antrikot|bonfile|pirzola|et |köfte|sucuk|salam|sosis|kavurma/.test(n)) return 'et-tavuk';
+    if (/tavuk|piliç|baget|kanat|göğüs|hindi/.test(n)) return 'et-tavuk';
+    if (/balık|levrek|çipura|somon|mezgit|karides|kalamar|midye/.test(n)) return 'et-tavuk';
     return 'temel-gida';
 }
 
@@ -48,6 +52,11 @@ export async function scrapeCarrefoursa(db) {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
         const categoryUrls = [
+            'https://www.carrefoursa.com/meyve/c/1015',
+            'https://www.carrefoursa.com/sebze/c/1025',
+            'https://www.carrefoursa.com/kirmizi-et/c/1045',
+            'https://www.carrefoursa.com/beyaz-et/c/1076',
+            'https://www.carrefoursa.com/balik-ve-deniz-mahsulleri/c/1098',
             'https://www.carrefoursa.com/sut-sut-urunleri/c/1032',
             'https://www.carrefoursa.com/icecekler/c/1036',
             'https://www.carrefoursa.com/temel-gida/c/1034',
@@ -57,26 +66,34 @@ export async function scrapeCarrefoursa(db) {
         ];
 
         for (const url of categoryUrls) {
-            const catName = url.split('/').filter(Boolean).slice(-2, -1)[0];
-            console.log(`  📂 Kategori: ${catName}`);
+            const parts = url.split('/').filter(Boolean);
+            const catName = parts[parts.indexOf('c') - 1] || 'kategori';
+            console.log(`  📂 Kategori: ${catName} (${url})`);
 
             try {
-                await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-                await sleep(3000);
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                await sleep(5000); // Give extra time for JS to render cards
                 await autoScroll(page);
 
                 const products = await page.evaluate(() => {
                     const items = [];
-                    const cards = document.querySelectorAll('[class*="product-card"], [class*="productCard"], .product-listing-item, [data-product-id]');
+                    const cards = document.querySelectorAll('li.product-item, [class*="product-card"], [class*="productCard"], .product-listing-item, [data-product-id]');
 
                     cards.forEach(card => {
-                        const nameEl = card.querySelector('[class*="product-name"], [class*="name"], .item-name, h3, h4');
-                        const priceEl = card.querySelector('[class*="price"], [class*="amount"], .item-price');
+                        const nameEl = card.querySelector('h3.name, [class*="product-name"], [class*="name"], .item-name, h3, h4');
+                        const priceEls = card.querySelectorAll('.item-price, .price, [class*="price"], [class*="amount"]');
                         const imgEl = card.querySelector('img');
                         const linkEl = card.querySelector('a');
 
-                        const name = nameEl?.textContent?.trim();
-                        const priceText = priceEl?.textContent?.trim();
+                        let priceText = '';
+                        for (const el of priceEls) {
+                            // Strip spaces to match prices like "12 , 90 TL" -> "12,90TL"
+                            const cleanText = el.textContent.replace(/\s+/g, '');
+                            if (cleanText.match(/\d+[.,]\d+/)) {
+                                priceText = cleanText;
+                                break;
+                            }
+                        }
                         const img = imgEl?.src || imgEl?.getAttribute('data-src') || '';
                         const href = linkEl?.href || '';
 
@@ -88,11 +105,21 @@ export async function scrapeCarrefoursa(db) {
                 });
 
                 for (const p of products) {
-                    const priceMatch = p.priceText.match(/(\d{1,5}[,\.]\d{2})/);
-                    if (!priceMatch) continue;
+                    console.log(`[DEBUG] Name: ${p.name} | Raw Price: '${p.priceText}'`);
 
-                    const price = parseFloat(priceMatch[1].replace(',', '.'));
-                    if (!price || price <= 0) continue;
+                    // Try to match standard "12,90 TL" format or "12.90"
+                    const priceMatch = p.priceText.match(/(\d{1,5}(?:[.,]\d{1,2})?)/);
+                    if (!priceMatch) {
+                        console.log(`[DEBUG] Regex failed!`);
+                        continue;
+                    }
+
+                    const priceStr = priceMatch[1].replace(',', '.');
+                    const price = parseFloat(priceStr);
+                    if (!price || price <= 0) {
+                        console.log(`[DEBUG] ParseFloat failed! priceStr=${priceStr}`);
+                        continue;
+                    }
 
                     const productId = upsertProduct(db, {
                         name: p.name,
@@ -117,6 +144,7 @@ export async function scrapeCarrefoursa(db) {
                 console.warn(`    ❌ Kategori hatası: ${err.message}`);
             }
 
+            saveDb(); // Save after each category
             await sleep(3000);
         }
 

@@ -18,6 +18,12 @@ const state = {
     categories: [],
     markets: [],
     loading: false,
+    // Pagination state
+    page: 1,
+    limit: 60,
+    total: 0,
+    hasMore: true,
+    loadingMore: false,
 };
 
 // ============================================
@@ -65,27 +71,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadInitialData() {
     state.loading = true;
+    renderSkeleton(); // Add a skeleton loader
 
     try {
-        // Try to load from API
-        const [productsData, marketsData, categoriesData, statsData] = await Promise.all([
-            fetchAPI('/products'),
+        const [marketsData, categoriesData, statsData] = await Promise.all([
             fetchAPI('/markets'),
             fetchAPI('/categories'),
             fetchAPI('/stats'),
         ]);
 
-        state.products = productsData || [];
         state.markets = marketsData || [];
         state.categories = [{ id: 'hepsi', name: 'Tümü', icon: '🏪' }, ...(categoriesData || [])];
 
-        // If API returns 0 products (not yet scraped), fall back to demo data
-        if (state.products.length === 0) {
-            console.log('ℹ️ API bağlı ama henüz veri yok, demo verisi yükleniyor...');
-            throw new Error('No products from API, loading demo data');
-        }
-
-        // Update stats
         if (statsData) {
             document.getElementById('statProducts').textContent = statsData.totalProducts || 0;
             document.getElementById('statMarkets').textContent = statsData.totalMarkets || 0;
@@ -94,44 +91,147 @@ async function loadInitialData() {
 
         renderCategories();
         renderMarketFilters();
-        renderProducts();
 
-        console.log(`✅ API'den ${state.products.length} ürün yüklendi`);
+        // Initial products load
+        await loadProducts(true);
+
+        setupInfiniteScroll();
 
     } catch (err) {
-        console.warn('⚠️ API bağlantısı yok, demo verisi yükleniyor...', err.message);
+        console.warn('⚠️ API hatası, demo verisi yükleniyor...', err);
+        // ... demo data fallback remains same or similar ...
+        loadDemoData();
+    } finally {
+        state.loading = false;
+    }
+}
 
-        // Fallback: load demo data
-        const { products } = await import('./data/products.js');
-        const { categories } = await import('./data/categories.js');
-        const { markets } = await import('./data/markets.js');
-
-        // Convert demo format to API format
-        state.products = products.map(p => ({
-            id: p.id,
-            name: p.name,
-            brand: p.brand,
-            category: p.category,
-            barcode: p.barcode,
-            image_url: p.image,
-            prices: p.prices.map(pr => ({
-                marketId: pr.marketId,
-                marketName: markets.find(m => m.id === pr.marketId)?.name || pr.marketId,
-                marketColor: markets.find(m => m.id === pr.marketId)?.color || '#666',
-                price: pr.price,
-                date: pr.date,
-            })),
-            priceHistory: p.priceHistory,
-        }));
-        state.categories = categories;
-        state.markets = markets.map(m => ({ id: m.id, name: m.name, color: m.color, bg_color: m.bgColor }));
-
-        renderCategories();
-        renderMarketFilters();
-        renderProducts();
+async function loadProducts(reset = false) {
+    if (reset) {
+        state.page = 1;
+        state.products = [];
+        state.hasMore = true;
+        document.getElementById('productsGrid').innerHTML = '';
     }
 
-    state.loading = false;
+    if (!state.hasMore || state.loadingMore) return;
+
+    state.loadingMore = true;
+    showLoader();
+
+    try {
+        const query = new URLSearchParams({
+            page: state.page,
+            limit: state.limit,
+            q: state.searchQuery,
+            category: state.activeCategory,
+            sort: state.sortBy
+        });
+        if (state.activeMarket) query.append('market', state.activeMarket);
+
+        const data = await fetchAPI(`/products?${query.toString()}`);
+
+        if (data && data.products) {
+            state.products = [...state.products, ...data.products];
+            state.total = data.pagination.total;
+            state.hasMore = data.pagination.hasMore;
+            state.page++;
+
+            renderProducts(data.products, reset);
+            updateResultsInfo();
+        }
+    } catch (err) {
+        console.error('Ürün yükleme hatası:', err);
+    } finally {
+        state.loadingMore = false;
+        hideLoader();
+    }
+}
+
+function setupInfiniteScroll() {
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && state.hasMore && !state.loadingMore) {
+            loadProducts();
+        }
+    }, { threshold: 0.1 });
+
+    // Create a sentinel element at the bottom of the grid
+    let sentinel = document.getElementById('infinite-scroll-sentinel');
+    if (!sentinel) {
+        sentinel = document.createElement('div');
+        sentinel.id = 'infinite-scroll-sentinel';
+        sentinel.style.height = '100px';
+        sentinel.style.width = '100%';
+        document.querySelector('.products-section .container').appendChild(sentinel);
+    }
+    observer.observe(sentinel);
+}
+
+function updateResultsInfo() {
+    const resultsCount = document.getElementById('resultsCount');
+    resultsCount.textContent = `${state.total} ürün (${state.products.length} yüklendi)`;
+}
+
+function showLoader() {
+    let loader = document.getElementById('bottom-loader');
+    if (!loader) {
+        loader = document.createElement('div');
+        loader.id = 'bottom-loader';
+        loader.innerHTML = '<div class="spinner"></div><span>Yeni ürünler yükleniyor...</span>';
+        document.querySelector('.products-section .container').appendChild(loader);
+    }
+    loader.style.display = 'flex';
+}
+
+function hideLoader() {
+    const loader = document.getElementById('bottom-loader');
+    if (loader) loader.style.display = 'none';
+}
+
+function renderSkeleton() {
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = Array(8).fill(0).map(() => `
+        <div class="product-card skeleton">
+            <div class="card-image"></div>
+            <div class="card-content">
+                <div class="skeleton-line" style="width: 40%"></div>
+                <div class="skeleton-line" style="width: 80%"></div>
+                <div class="skeleton-line" style="width: 60%"></div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadDemoData() {
+    const { products } = await import('./data/products.js');
+    const { categories } = await import('./data/categories.js');
+    const { markets } = await import('./data/markets.js');
+
+    state.products = products.map(p => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        category: p.category,
+        barcode: p.barcode,
+        image_url: p.image,
+        prices: p.prices.map(pr => ({
+            marketId: pr.marketId,
+            marketName: markets.find(m => m.id === pr.marketId)?.name || pr.marketId,
+            marketColor: markets.find(m => m.id === pr.marketId)?.color || '#666',
+            price: pr.price,
+            date: pr.date,
+        })),
+        priceHistory: p.priceHistory,
+    }));
+    state.categories = categories;
+    state.markets = markets.map(m => ({ id: m.id, name: m.name, color: m.color, bg_color: m.bgColor }));
+    state.total = state.products.length;
+    state.hasMore = false;
+
+    renderCategories();
+    renderMarketFilters();
+    renderProducts(state.products, true);
+    updateResultsInfo();
 }
 
 async function fetchAPI(path) {
@@ -151,8 +251,8 @@ function setupEventListeners() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             state.searchQuery = e.target.value.trim().toLowerCase();
-            renderProducts();
-        }, 200);
+            loadProducts(true);
+        }, 300);
     });
 
     // Keyboard shortcut
@@ -185,7 +285,7 @@ function setupEventListeners() {
             sortDropdown.querySelectorAll('.sort-option').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             sortDropdown.classList.remove('open');
-            renderProducts();
+            loadProducts(true);
         });
     });
 
@@ -213,7 +313,7 @@ function renderCategories() {
             state.activeCategory = chip.dataset.category;
             container.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            renderProducts();
+            loadProducts(true);
         });
     });
 }
@@ -246,7 +346,7 @@ function renderMarketFilters() {
             state.activeMarket = chip.dataset.market || null;
             container.querySelectorAll('.market-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            renderProducts();
+            loadProducts(true);
         });
     });
 }
@@ -312,51 +412,23 @@ function getCheapestMarket(product) {
 // ============================================
 // RENDER PRODUCTS
 // ============================================
-function renderProducts() {
+function renderProducts(newProducts = [], reset = false) {
     const grid = document.getElementById('productsGrid');
     const noResults = document.getElementById('noResults');
-    const resultsCount = document.getElementById('resultsCount');
-    const activeFilters = document.getElementById('activeFilters');
 
-    const filtered = getFilteredProducts();
-    resultsCount.textContent = `${filtered.length} ürün`;
-
-    // Filter tags
-    let filterTags = '';
-    if (state.activeCategory !== 'hepsi') {
-        const cat = state.categories.find(c => c.id === state.activeCategory);
-        filterTags += `<span class="filter-tag">${cat?.icon || ''} ${cat?.name || state.activeCategory} <span class="remove-filter" data-clear="category">✕</span></span>`;
-    }
-    if (state.activeMarket) {
-        const m = state.markets.find(mk => mk.id === state.activeMarket);
-        filterTags += `<span class="filter-tag">🏪 ${m?.name || state.activeMarket} <span class="remove-filter" data-clear="market">✕</span></span>`;
-    }
-    if (state.searchQuery) {
-        filterTags += `<span class="filter-tag">🔍 "${state.searchQuery}" <span class="remove-filter" data-clear="search">✕</span></span>`;
-    }
-    activeFilters.innerHTML = filterTags;
-
-    activeFilters.querySelectorAll('.remove-filter').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const type = btn.dataset.clear;
-            if (type === 'category') { state.activeCategory = 'hepsi'; renderCategories(); }
-            else if (type === 'market') { state.activeMarket = null; renderMarketFilters(); }
-            else if (type === 'search') { state.searchQuery = ''; document.getElementById('searchInput').value = ''; }
-            renderProducts();
-        });
-    });
-
-    if (filtered.length === 0) {
-        grid.style.display = 'none';
-        noResults.style.display = 'block';
-        return;
+    if (reset) {
+        grid.innerHTML = '';
+        if (newProducts.length === 0) {
+            grid.style.display = 'none';
+            noResults.style.display = 'block';
+            return;
+        }
     }
 
     noResults.style.display = 'none';
     grid.style.display = 'grid';
 
-    grid.innerHTML = filtered.map((product, index) => {
+    const html = newProducts.map((product, index) => {
         const minPrice = getMinPrice(product);
         const maxPrice = getMaxPrice(product);
         const discount = getDiscountPercent(product);
@@ -369,7 +441,7 @@ function renderProducts() {
             .slice(0, 4)
             .map(p => {
                 const isCheapest = p.price === minPrice;
-                return `<span class="card-market-tag ${isCheapest ? 'cheapest' : ''}">${p.marketName} ${formatPrice(p.price)}</span>`;
+                return `<span class="card-market-tag ${isCheapest ? 'cheapest' : ''}">${p.marketName || p.market_name} ${formatPrice(p.price)}</span>`;
             })
             .join('');
 
@@ -377,7 +449,7 @@ function renderProducts() {
       <div class="product-card" data-product-id="${product.id}" style="animation-delay: ${Math.min(index * 0.05, 0.4)}s">
         <div class="card-badges">
           ${discount > 5 ? `<span class="badge badge-discount">%${discount.toFixed(1)} Fark</span>` : ''}
-          <span class="badge badge-cheapest">En Ucuz: ${cheapest?.marketName || '?'}</span>
+          <span class="badge badge-cheapest">En Ucuz: ${cheapest?.marketName || cheapest?.market_name || '?'}</span>
         </div>
         <div class="card-image">
           <img src="${imgSrc}" alt="${product.name}" loading="lazy" onerror="this.src='${makeProductImage(product.name, product.category)}'"/>
@@ -401,10 +473,19 @@ function renderProducts() {
     `;
     }).join('');
 
+    if (reset) {
+        grid.innerHTML = html;
+    } else {
+        grid.insertAdjacentHTML('beforeend', html);
+    }
+
     grid.querySelectorAll('.product-card').forEach(card => {
-        card.addEventListener('click', () => {
-            openModal(parseInt(card.dataset.productId) || card.dataset.productId);
-        });
+        if (!card.hasListener) {
+            card.addEventListener('click', () => {
+                openModal(card.dataset.productId);
+            });
+            card.hasListener = true;
+        }
     });
 }
 
