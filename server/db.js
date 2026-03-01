@@ -146,66 +146,111 @@ function initTables(db) {
 export function normalizeName(name) {
   let n = name
     .toLowerCase()
-    .replace(/[''""\u2018\u2019\u201C\u201D]/g, '')  // remove quotes
+    .replace(/['"“”‘’]/g, '')  // remove quotes
     .replace(/\s+/g, ' ')            // collapse whitespace
     .replace(/&amp;/g, '&')
     .trim();
 
+  // Normalize common brands or words that differ across markets
+  n = n
+    .replace(/coca-cola|coca cola/g, 'cocacola')
+    .replace(/didi şeftali/g, 'didi seftali')
+    .replace(/fuse tea|fusetea/g, 'fusetea')
+    .replace(/nescafé/g, 'nescafe');
+
   // Standardize units
   n = n
-    .replace(/(\d)\s*(lt|litre|liter)\b/gi, '$1 l')
-    .replace(/(\d)\s*ml\b/gi, '$1 ml')
+    .replace(/(\d)\s*(lt|litre|liter|l)\b/gi, '$1 l')
+    .replace(/(\d)\s*(ml)\b/gi, '$1 ml')
     .replace(/(\d)\s*(gr|gram)\b/gi, '$1 g')
-    .replace(/(\d)\s*kg\b/gi, '$1 kg')
+    .replace(/(\d)\s*(kg|kilo)\b/gi, '$1 kg')
     .replace(/(\d)\s*cc\b/gi, '$1 ml')
     .replace(/(\d)\s*adet\b/gi, '$1 adet');
 
-  // Standardize separators
+  // Standardize separators & packaging
   n = n
     .replace(/\s*x\s*/g, '*')        // 3x1 → 3*1
     .replace(/\s*\*\s*/g, '*')
     .replace(/'lı\b/g, 'li')
     .replace(/'lu\b/g, 'lu')
     .replace(/'li\b/g, 'li')
-    .replace(/'lü\b/g, 'lü');
+    .replace(/'lü\b/g, 'lü')
+    .replace(/-\s*/g, '');           // remove dashes for better match
 
-  // Remove extra spaces
-  n = n.replace(/\s+/g, ' ').trim();
+  // Remove extra spaces & non-alphanumeric chars
+  n = n.replace(/[^a-z0-9çğıöşü\* ]/gi, ' ').replace(/\s+/g, ' ').trim();
+
+  // Strip fluff words AFTER non-alphanumerics are removed
+  n = n
+    .replace(/\bi çecek|içecek|icecek\b/g, '')
+    .replace(/\bekonomik|avantaj|fırsat|firsat|hediyeli|bedava|yeni|özel|ekstra|extra\b/g, '')
+    .replace(/\bplastik|poşet|poset|kutu|pet|şişe|sise|teneke|paket\b/g, '')
+    .replace(/\bdoğal|dogal|taze|yöresel\b/g, '')
+    .replace(/or[i]*j[i]*nal(\s*tat)?/g, '')
+    .replace(/klasik|kola/g, '')
+    .replace(/\s+/g, ' ').trim();
 
   return n;
+}
+
+// Generate base match string: Alphanumeric only, no spaces
+export function getBaseMatchStr(normalized) {
+  return normalized.replace(/[\s\*\-\.]/g, '');
 }
 
 // Helper: insert or update product and return product ID
 export function upsertProduct(db, { name, brand, category, barcode, imageUrl, sourceUrl }) {
   const normalized = normalizeName(name);
+  const matchStr = getBaseMatchStr(normalized);
 
-  // Try exact match first
-  let existing = db.exec('SELECT id FROM products WHERE name = ? AND brand = ?', [name, brand || '']);
+  // 1. Try exact exact match first (Case sensitive)
+  let existing = db.exec('SELECT id FROM products WHERE name = ?', [name]);
 
-  // Try normalized match if no exact match
-  if (!existing.length || !existing[0].values.length) {
-    existing = db.exec(
-      "SELECT id FROM products WHERE LOWER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '-', ''), '.', '')) = ?",
-      [normalized.replace(/[\s\-\.]/g, '')]
-    );
+  // 2. Try Barcode match (STRONGEST match if provided)
+  if ((!existing.length || !existing[0].values.length) && barcode) {
+    existing = db.exec('SELECT id FROM products WHERE barcode = ?', [barcode]);
   }
 
-  // Try fuzzy match: same first 20 chars of normalized name
+  // 3. Try to find products that normalize to the EXACT same string
   if (!existing.length || !existing[0].values.length) {
-    const shortNorm = normalized.replace(/[\s\-\.]/g, '').substring(0, 20);
-    if (shortNorm.length >= 10) {
-      existing = db.exec(
-        "SELECT id FROM products WHERE SUBSTR(LOWER(REPLACE(REPLACE(REPLACE(name, ' ', ''), '-', ''), '.', '')), 1, 20) = ?",
-        [shortNorm]
-      );
+    // We compute the base matched string dynamically for all db entries
+    // Since REPLACE logic in SQLite can be messy for all cases, we extract 
+    // it in memory if the DB isn't massive, but assuming we must use sql:
+    const sqlLikeMatch = `%${matchStr.substring(0, Math.min(25, matchStr.length))}%`;
+    const potentialMatches = db.exec(
+      `SELECT id, name FROM products WHERE LOWER(REPLACE(REPLACE(name, ' ', ''), '-', '')) LIKE ?`,
+      [sqlLikeMatch]
+    );
+
+    if (potentialMatches.length > 0 && potentialMatches[0].values.length > 0) {
+      // Iterate through potentials in JS for safe matching
+      for (const [id, dbName] of potentialMatches[0].values) {
+        const dbNormMatchStr = getBaseMatchStr(normalizeName(dbName));
+
+        // Check if they are basically identical stripped strings
+        if (dbNormMatchStr === matchStr) {
+          existing = [{ values: [[id]] }];
+          break;
+        }
+
+        // Or if they overlap significantly (Length > 15) and start the exact same way 
+        // covers (Coca Cola 1 L) vs (Coca Cola 1 Litre Kutu vs Pet matters, but let's assume they group if volume matches)
+        if (matchStr.length > 15 && dbNormMatchStr.length > 15) {
+          if (dbNormMatchStr.startsWith(matchStr) || matchStr.startsWith(dbNormMatchStr)) {
+            existing = [{ values: [[id]] }];
+            break;
+          }
+        }
+      }
     }
   }
 
-  if (existing.length > 0 && existing[0].values.length > 0) {
+  if (existing && existing.length > 0 && existing[0].values.length > 0) {
     const id = existing[0].values[0][0];
-    // Update with better data if available
-    db.run('UPDATE products SET category = COALESCE(?, category), barcode = COALESCE(?, barcode), image_url = COALESCE(?, image_url), source_url = COALESCE(?, source_url), updated_at = datetime("now") WHERE id = ?',
-      [category || null, barcode || null, imageUrl || null, sourceUrl || null, id]);
+    // Update with better data if available (keep original name since we grouped)
+    // Coalesce barcode if we found one now
+    db.run('UPDATE products SET category = COALESCE(?, category), barcode = COALESCE(barcode, ?), image_url = COALESCE(?, image_url), updated_at = datetime("now") WHERE id = ?',
+      [category || null, barcode || null, imageUrl || null, id]);
     return id;
   }
 

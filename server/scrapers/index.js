@@ -3,12 +3,14 @@ import { scrapeSok } from './sok.js';
 import { scrapeA101 } from './a101.js';
 import { scrapeMigros } from './migros.js';
 import { scrapeCarrefoursa } from './carrefoursa.js';
+import { scrapeMarketKarsilastir } from './marketkarsilastir.js';
 
 const scrapers = {
     sok: { name: 'ŞOK', fn: scrapeSok },
     a101: { name: 'A101', fn: scrapeA101 },
     migros: { name: 'Migros', fn: scrapeMigros },
     carrefoursa: { name: 'CarrefourSA', fn: scrapeCarrefoursa },
+    marketkarsilastir: { name: 'MarketKarsilastir', fn: scrapeMarketKarsilastir },
 };
 
 export async function runAllScrapers() {

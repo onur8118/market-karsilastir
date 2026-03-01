@@ -46,7 +46,11 @@ app.get('/api/products', async (req, res) => {
         const params = [];
 
         if (q) {
-            const searchTerm = `%${q.toLowerCase()}%`;
+            let searchTerm = q.toLowerCase();
+            // Normalize common search terms
+            searchTerm = searchTerm.replace(/\bkola\b/g, 'cola');
+
+            searchTerm = `%${searchTerm}%`;
             const searchClause = ` AND (LOWER(p.name) LIKE ? OR LOWER(p.brand) LIKE ? OR p.barcode LIKE ?)`;
             query += searchClause;
             queryCount += searchClause;
@@ -90,7 +94,9 @@ app.get('/api/products', async (req, res) => {
 
         const paginatedParams = [];
         if (q) {
-            const searchTerm = `%${q.toLowerCase()}%`;
+            let normQ = q.toLowerCase();
+            normQ = normQ.replace(/\bkola\b/g, 'cola');
+            const searchTerm = `%${normQ}%`;
             paginatedProductsQuery += ` 
                 AND (
                     LOWER(p.name) LIKE ? 
