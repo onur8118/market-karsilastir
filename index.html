@@ -1,15 +1,20 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FiyatRadar — Market Fiyat Karşılaştırma</title>
-  <meta name="description" content="Türkiye'deki marketlerin ürün fiyatlarını anlık karşılaştırın. A101, BİM, ŞOK, Migros, CarrefourSA fiyatları tek platformda." />
+  <meta name="description"
+    content="Türkiye'deki marketlerin ürün fiyatlarını anlık karşılaştırın. A101, BİM, ŞOK, Migros, CarrefourSA, Happy Center fiyatları tek platformda." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/src/style.css" />
 </head>
+
 <body>
 
   <!-- NAVBAR -->
@@ -21,20 +26,23 @@
       </a>
       <div class="navbar-search">
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
         </svg>
         <input type="text" id="searchInput" placeholder="Ürün adı, marka veya barkod ara..." autocomplete="off" />
         <kbd class="search-kbd">⌘K</kbd>
       </div>
       <div class="navbar-actions">
         <button class="nav-btn" id="sortBtn" title="Sırala">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h12M3 18h6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 6h18M3 12h12M3 18h6" />
+          </svg>
         </button>
         <div class="sort-dropdown" id="sortDropdown">
           <button class="sort-option active" data-sort="default">Varsayılan</button>
           <button class="sort-option" data-sort="price-asc">En Ucuz</button>
           <button class="sort-option" data-sort="price-desc">En Pahalı</button>
-          <button class="sort-option" data-sort="discount">En Çok İndirim</button>
+          <button class="sort-option" data-sort="discount">En Çok Fark</button>
         </div>
       </div>
     </div>
@@ -56,17 +64,17 @@
       </p>
       <div class="hero-stats">
         <div class="stat-item">
-          <span class="stat-number" id="statProducts">24</span>
+          <span class="stat-number" id="statProducts">—</span>
           <span class="stat-label">Ürün</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-item">
-          <span class="stat-number" id="statMarkets">7</span>
+          <span class="stat-number" id="statMarkets">—</span>
           <span class="stat-label">Market</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-item">
-          <span class="stat-number" id="statCategories">10</span>
+          <span class="stat-number" id="statCategories">—</span>
           <span class="stat-label">Kategori</span>
         </div>
       </div>
@@ -98,7 +106,7 @@
   <section class="results-bar">
     <div class="container">
       <div class="results-info">
-        <span id="resultsCount">24 ürün</span>
+        <span id="resultsCount">Yükleniyor...</span>
         <div class="active-filters" id="activeFilters"></div>
       </div>
     </div>
@@ -122,7 +130,9 @@
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal" id="productModal">
       <button class="modal-close" id="modalClose">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
       </button>
       <div class="modal-body">
         <div class="modal-left">
@@ -141,7 +151,10 @@
         <div class="modal-right">
           <div class="modal-prices-section">
             <h3 class="modal-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+                <line x1="7" y1="7" x2="7.01" y2="7" />
+              </svg>
               Güncel Fiyatlar
             </h3>
             <div class="price-comparison-list" id="priceComparisonList">
@@ -150,7 +163,9 @@
           </div>
           <div class="modal-chart-section">
             <h3 class="modal-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
               Fiyat Geçmişi
             </h3>
             <div class="chart-container">
@@ -170,12 +185,13 @@
           <span class="brand-icon">📡</span>
           <span class="brand-text">Fiyat<span class="brand-accent">Radar</span></span>
         </div>
-        <p class="footer-text">Demo amaçlı hazırlanmıştır. Fiyatlar gerçek verileri yansıtmayabilir.</p>
-        <p class="footer-copy">© 2026 FiyatRadar. Tüm hakları saklıdır.</p>
+        <p class="footer-text">A101, BİM, ŞOK, Migros, CarrefourSA ve Happy Center fiyatları otomatik güncelleniyor.</p>
+        <p class="footer-copy">© 2026 FiyatRadar. Veriler bilgilendirme amaçlıdır.</p>
       </div>
     </div>
   </footer>
 
   <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>

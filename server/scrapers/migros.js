@@ -25,55 +25,7 @@ function extractBrand(name) {
     return name.split(' ')[0];
 }
 
-const CATEGORY_MAP = {
-    'meyve-sebze': 'meyve-sebze',
-    'meyve': 'meyve-sebze',
-    'sebze': 'meyve-sebze',
-    'et-tavuk-balik': 'et-tavuk',
-    'dana-eti': 'et-tavuk',
-    'kuzu-eti': 'et-tavuk',
-    'pilic': 'et-tavuk',
-    'balik': 'et-tavuk',
-    'sut-kahvaltilik': 'sut-urunleri',
-    'yumurta': 'sut-urunleri',
-    'temel-gida': 'temel-gida',
-    'icecek': 'icecek',
-    'su': 'icecek',
-    'atistirmalik': 'atistirmalik',
-    'cikolata': 'atistirmalik',
-    'cips': 'atistirmalik',
-    'dondurma': 'atistirmalik',
-    'dondurulmus-gida': 'dondurulmus',
-    'hazir-yemek-donuk': 'dondurulmus',
-    'firin-pastane': 'temel-gida',
-    'deterjan-temizlik': 'temizlik',
-    'kagit-islak-mendil': 'temizlik',
-    'kisisel-bakim-kozmetik-saglik': 'kisisel-bakim',
-    'sac-bakim': 'kisisel-bakim',
-    'sampuan': 'kisisel-bakim',
-    'dis-macunu': 'kisisel-bakim',
-    'bebek': 'bebek',
-    'bebek-bezi': 'bebek',
-    'ev-yasam': 'temel-gida',
-    'evcil-hayvan': 'temel-gida',
-};
-
-function guessCategory(url, name) {
-    const urlLower = (url || '').toLowerCase();
-    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
-        if (urlLower.includes(key)) return val;
-    }
-    const n = (name || '').toLowerCase();
-    if (/süt|yoğurt|peynir|ayran|tereyağ|krema|kaşar|lor/.test(n)) return 'sut-urunleri';
-    if (/su |cola|fanta|sprite|meyve suyu|çay|kahve|soda/.test(n)) return 'icecek';
-    if (/çikolata|gofret|bisküvi|cips|kraker|nutella|doritos/.test(n)) return 'atistirmalik';
-    if (/deterjan|çamaşır|bulaşık|domestos|fairy|temiz/.test(n)) return 'temizlik';
-    if (/şampuan|sabun|diş|deodorant|krem|bakım|duş/.test(n)) return 'kisisel-bakim';
-    if (/makarna|pirinç|un |yağ|tuz|şeker|salça|konserve/.test(n)) return 'temel-gida';
-    if (/elma|portakal|domates|biber|muz|üzüm/.test(n)) return 'meyve-sebze';
-    if (/tavuk|et |dana|kıyma|köfte|sucuk|sosis/.test(n)) return 'et-tavuk';
-    return 'temel-gida';
-}
+import { guessCategory } from '../utils.js';
 
 function parsePrice(text) {
     if (!text) return null;
@@ -104,6 +56,16 @@ export async function scrapeMigros(db) {
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        // Optimizasyon: Gereksiz kaynakları engelle
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
 
         // Main Migros categories (from discovery script — main food/household categories)
         const mainCategories = [

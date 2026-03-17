@@ -7,16 +7,33 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, 'fiyatradar.db');
 
 let db = null;
+let dbLastModified = 0;
 
-export async function getDb() {
-  if (db) return db;
-
+export async function getDb(forceReload = false) {
   const SQL = await initSqlJs();
 
   if (fs.existsSync(DB_PATH)) {
-    const buffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(buffer);
-  } else {
+    const stat = fs.statSync(DB_PATH);
+    const mtime = stat.mtimeMs;
+
+    if (!db || forceReload || mtime > dbLastModified) {
+      const buffer = fs.readFileSync(DB_PATH);
+      db = new SQL.Database(buffer);
+      db.run(`
+        CREATE TABLE IF NOT EXISTS product_equivalents (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          original_product_id INTEGER NOT NULL,
+          equivalent_product_id INTEGER NOT NULL,
+          match_type TEXT DEFAULT 'manual',
+          created_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (original_product_id) REFERENCES products(id),
+          FOREIGN KEY (equivalent_product_id) REFERENCES products(id),
+          UNIQUE(original_product_id, equivalent_product_id)
+        )
+      `);
+      dbLastModified = mtime;
+    }
+  } else if (!db) {
     db = new SQL.Database();
     initTables(db);
   }
@@ -79,12 +96,16 @@ function initTables(db) {
     )
   `);
 
-  db.run(`
-    CREATE INDEX IF NOT EXISTS idx_prices_product ON prices(product_id)
-  `);
-  db.run(`
-    CREATE INDEX IF NOT EXISTS idx_prices_date ON prices(date)
-  `);
+  // === PERFORMANCE INDEXES ===
+  db.run(`CREATE INDEX IF NOT EXISTS idx_prices_product ON prices(product_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_prices_date ON prices(date)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_prices_market ON prices(market_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_prices_product_market ON prices(product_id, market_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_prices_product_market_date ON prices(product_id, market_id, date)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_products_name ON products(name)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_products_brand ON products(brand)`);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS scrape_logs (
@@ -99,6 +120,19 @@ function initTables(db) {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS product_equivalents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      original_product_id INTEGER NOT NULL,
+      equivalent_product_id INTEGER NOT NULL,
+      match_type TEXT DEFAULT 'manual',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (original_product_id) REFERENCES products(id),
+      FOREIGN KEY (equivalent_product_id) REFERENCES products(id),
+      UNIQUE(original_product_id, equivalent_product_id)
+    )
+  `);
+
   // Seed markets
   const markets = [
     ['a101', 'A101', '#0057A8', '#E8F1FA', 'https://www.a101.com.tr'],
@@ -106,6 +140,12 @@ function initTables(db) {
     ['sok', 'ŞOK', '#FFD100', '#FFF9E0', 'https://www.sokmarket.com.tr'],
     ['migros', 'Migros', '#F26F21', '#FEF0E6', 'https://www.migros.com.tr'],
     ['carrefoursa', 'CarrefourSA', '#004E9A', '#E6EEF6', 'https://www.carrefoursa.com'],
+    ['happycenter', 'Happy Center', '#009639', '#e6f4eb', 'https://www.happy.com.tr'],
+    ['onur', 'Onur Market', '#f26522', '#feece5', 'https://www.onurmarket.com'],
+    ['bizim', 'Bizim Toptan', '#004a99', '#e6edf5', 'https://www.bizimtoptan.com.tr'],
+    ['file', 'File Market', '#009b4c', '#e6f5ed', 'https://www.file.com.tr'],
+    ['metro', 'Metro', '#00366b', '#e6ebf0', 'https://www.metro-tr.com'],
+    ['tarimkredi', 'Tarım Kredi', '#008542', '#e6f3eb', 'https://www.tarimkredi-kooperatif.market'],
   ];
 
   const insertMarket = db.prepare('INSERT OR IGNORE INTO markets (id, name, color, bg_color, base_url) VALUES (?, ?, ?, ?, ?)');
@@ -247,10 +287,27 @@ export function upsertProduct(db, { name, brand, category, barcode, imageUrl, so
 
   if (existing && existing.length > 0 && existing[0].values.length > 0) {
     const id = existing[0].values[0][0];
-    // Update with better data if available (keep original name since we grouped)
-    // Coalesce barcode if we found one now
-    db.run('UPDATE products SET category = COALESCE(?, category), barcode = COALESCE(barcode, ?), image_url = COALESCE(?, image_url), updated_at = datetime("now") WHERE id = ?',
-      [category || null, barcode || null, imageUrl || null, id]);
+
+    // Protection: Don't let suspicious data override good data
+    const isInvalidCategory = category && category.startsWith('%');
+    const isInvalidBarcode = barcode && barcode.startsWith('%');
+    const isInvalidImageUrl = imageUrl && imageUrl.startsWith('%');
+
+    db.run(`
+      UPDATE products 
+      SET 
+        category = CASE WHEN category IS NULL OR ? = 0 THEN COALESCE(?, category) ELSE category END,
+        barcode = CASE WHEN barcode IS NULL OR ? = 0 THEN COALESCE(barcode, ?) ELSE barcode END,
+        image_url = CASE WHEN image_url IS NULL OR ? = 0 THEN COALESCE(?, image_url) ELSE image_url END,
+        updated_at = datetime("now") 
+      WHERE id = ?`,
+      [
+        isInvalidCategory ? 1 : 0, category || null,
+        isInvalidBarcode ? 1 : 0, barcode || null,
+        isInvalidImageUrl ? 1 : 0, imageUrl || null,
+        id
+      ]
+    );
     return id;
   }
 

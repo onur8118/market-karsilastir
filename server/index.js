@@ -3,9 +3,10 @@ import cors from 'cors';
 import cron from 'node-cron';
 import { getDb, saveDb } from './db.js';
 import { runAllScrapers, runSingleScraper } from './scrapers/index.js';
+import { extractVolumeInfo, calculateUnitPrice } from './unit_converter.js';
 
 const app = express();
-const PORT = 3001;
+const PORT = 3005;
 
 app.use(cors());
 app.use(express.json());
@@ -134,7 +135,7 @@ app.get('/api/products', async (req, res) => {
         paginatedParams.push(parseInt(limit), parseInt(offset));
 
         const productIdsResult = db.exec(paginatedProductsQuery, paginatedParams);
-        if (!productIdsResult.length || !productIdsResult[0].values.length) {
+        if (!productIdsResult || !productIdsResult.length || !productIdsResult[0].values || !productIdsResult[0].values.length) {
             return res.json({ products: [], pagination: { total, page: parseInt(page), limit: parseInt(limit), hasMore: false } });
         }
 
@@ -182,6 +183,9 @@ app.get('/api/products', async (req, res) => {
             }
 
             if (obj.market_id && obj.price) {
+                const volInfo = extractVolumeInfo(obj.name);
+                const unitPrice = calculateUnitPrice(obj.price, volInfo);
+
                 productsMap.get(obj.id).prices.push({
                     marketId: obj.market_id,
                     marketName: obj.market_name,
@@ -189,6 +193,7 @@ app.get('/api/products', async (req, res) => {
                     price: obj.price,
                     originalPrice: obj.original_price,
                     date: obj.date,
+                    unitPrice: unitPrice
                 });
             }
         }
@@ -220,6 +225,37 @@ app.get('/api/products', async (req, res) => {
         });
     } catch (err) {
         console.error('API hatası:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/search/suggestions — autocomplete suggestions
+app.get('/api/search/suggestions', async (req, res) => {
+    try {
+        const db = await getDb();
+        const { q } = req.query;
+        if (!q || q.length < 2) return res.json([]);
+
+        const searchTerm = `%${q.toLowerCase()}%`;
+        const result = db.exec(`
+            SELECT DISTINCT name, brand 
+            FROM products 
+            WHERE LOWER(name) LIKE ? OR LOWER(brand) LIKE ?
+            ORDER BY name ASC 
+            LIMIT 8
+        `, [searchTerm, searchTerm]);
+
+        if (!result.length || !result[0].values.length) {
+            return res.json([]);
+        }
+
+        const suggestions = result[0].values.map(v => ({
+            name: v[0],
+            brand: v[1]
+        }));
+
+        res.json(suggestions);
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
@@ -258,6 +294,9 @@ app.get('/api/products/:id', async (req, res) => {
             product.prices = pricesResult[0].values.map(r => {
                 const obj = {};
                 pCols.forEach((col, i) => obj[col] = r[i]);
+                const volInfo = extractVolumeInfo(product.name);
+                const unitPrice = calculateUnitPrice(obj.price, volInfo);
+
                 return {
                     marketId: obj.market_id,
                     marketName: obj.market_name,
@@ -265,6 +304,7 @@ app.get('/api/products/:id', async (req, res) => {
                     price: obj.price,
                     originalPrice: obj.original_price,
                     date: obj.date,
+                    unitPrice: unitPrice
                 };
             });
         }
@@ -288,9 +328,168 @@ app.get('/api/products/:id', async (req, res) => {
             });
         }
 
+        // Equivalent products (Muadiller)
+        const equivalentsResult = db.exec(`
+          SELECT 
+            p.id, p.name, p.brand, p.category, p.image_url,
+            pr.market_id, pr.price, m.name as market_name, m.color as market_color
+          FROM product_equivalents pe
+          JOIN products p ON (pe.equivalent_product_id = p.id OR pe.original_product_id = p.id)
+          LEFT JOIN prices pr ON p.id = pr.product_id AND pr.date = (
+            SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
+          )
+          LEFT JOIN markets m ON pr.market_id = m.id
+          WHERE (pe.original_product_id = ? OR pe.equivalent_product_id = ?) AND p.id != ?
+        `, [id, id, id]);
+
+        product.equivalents = [];
+        if (equivalentsResult.length && equivalentsResult[0].values.length) {
+            const eMap = new Map();
+            const eCols = equivalentsResult[0].columns;
+            for (const row of equivalentsResult[0].values) {
+                const obj = {};
+                eCols.forEach((col, i) => obj[col] = row[i]);
+
+                if (!eMap.has(obj.id)) {
+                    eMap.set(obj.id, {
+                        id: obj.id,
+                        name: obj.name,
+                        brand: obj.brand,
+                        category: obj.category,
+                        image_url: obj.image_url,
+                        prices: []
+                    });
+                }
+                if (obj.market_id) {
+                    eMap.get(obj.id).prices.push({
+                        marketId: obj.market_id,
+                        marketName: obj.market_name,
+                        marketColor: obj.market_color,
+                        price: obj.price
+                    });
+                }
+            }
+            product.equivalents = Array.from(eMap.values());
+        }
+
         res.json(product);
     } catch (err) {
         console.error('API hatası:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/products/:id/best-time — Best Time to Buy analysis
+app.get('/api/products/:id/best-time', async (req, res) => {
+    try {
+        const db = await getDb();
+        const { id } = req.params;
+
+        // Get all historical prices for this product
+        const histResult = db.exec(`
+            SELECT pr.price, pr.date, pr.market_id, m.name as market_name, m.color as market_color
+            FROM prices pr
+            JOIN markets m ON pr.market_id = m.id
+            WHERE pr.product_id = ?
+            ORDER BY pr.date ASC
+        `, [id]);
+
+        if (!histResult.length || !histResult[0].values.length) {
+            return res.json({ hasData: false });
+        }
+
+        const cols = histResult[0].columns;
+        const entries = histResult[0].values.map(r => {
+            const o = {};
+            cols.forEach((c, i) => o[c] = r[i]);
+            return o;
+        });
+
+        // === Analysis 1: Day of week cheapest ===
+        const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+        const byDay = {};
+        entries.forEach(e => {
+            const d = new Date(e.date).getDay();
+            if (!byDay[d]) byDay[d] = { prices: [], day: d, name: dayNames[d] };
+            byDay[d].prices.push(e.price);
+        });
+        const dayStats = Object.values(byDay).map(d => ({
+            day: d.day,
+            name: d.name,
+            avgPrice: d.prices.reduce((a, b) => a + b, 0) / d.prices.length,
+            count: d.prices.length
+        })).sort((a, b) => a.avgPrice - b.avgPrice);
+
+        // === Analysis 2: Monthly trend (last 12 months) ===
+        const byMonth = {};
+        entries.forEach(e => {
+            const month = e.date.substring(0, 7); // YYYY-MM
+            if (!byMonth[month]) byMonth[month] = [];
+            byMonth[month].push(e.price);
+        });
+        const monthlyTrend = Object.entries(byMonth)
+            .map(([month, prices]) => ({
+                month,
+                label: new Date(month + '-01').toLocaleDateString('tr-TR', { year: 'numeric', month: 'short' }),
+                avgPrice: prices.reduce((a, b) => a + b, 0) / prices.length,
+                minPrice: Math.min(...prices),
+                count: prices.length
+            }))
+            .sort((a, b) => a.month.localeCompare(b.month))
+            .slice(-12);
+
+        // === Analysis 3: Cheapest market stats ===
+        const byMarket = {};
+        entries.forEach(e => {
+            if (!byMarket[e.market_id]) {
+                byMarket[e.market_id] = { marketId: e.market_id, marketName: e.market_name, marketColor: e.market_color, prices: [] };
+            }
+            byMarket[e.market_id].prices.push(e.price);
+        });
+        const marketStats = Object.values(byMarket).map(m => ({
+            marketId: m.marketId,
+            marketName: m.marketName,
+            marketColor: m.marketColor,
+            avgPrice: m.prices.reduce((a, b) => a + b, 0) / m.prices.length,
+            minPrice: Math.min(...m.prices),
+            maxPrice: Math.max(...m.prices),
+            count: m.prices.length
+        })).sort((a, b) => a.avgPrice - b.avgPrice);
+
+        // === Analysis 4: Price trend (rising/falling/stable) ===
+        let trend = 'stable';
+        let trendPct = 0;
+        if (monthlyTrend.length >= 2) {
+            const first = monthlyTrend[0].avgPrice;
+            const last = monthlyTrend[monthlyTrend.length - 1].avgPrice;
+            trendPct = ((last - first) / first) * 100;
+            if (trendPct > 3) trend = 'rising';
+            else if (trendPct < -3) trend = 'falling';
+        }
+
+        // === Best recommendation ===
+        const cheapestDay = dayStats[0];
+        const cheapestMarket = marketStats[0];
+        const currentMinPrice = Math.min(...entries.filter(e => e.date === entries[entries.length - 1].date).map(e => e.price));
+        const allTimeMin = Math.min(...entries.map(e => e.price));
+        const isNearAllTimeMin = currentMinPrice <= allTimeMin * 1.05;
+
+        res.json({
+            hasData: true,
+            totalDataPoints: entries.length,
+            trend,                   // 'rising', 'falling', 'stable'
+            trendPct: parseFloat(trendPct.toFixed(1)),
+            isNearAllTimeMin,
+            allTimeMin,
+            currentMinPrice,
+            cheapestDay,
+            cheapestMarket,
+            dayStats,
+            monthlyTrend,
+            marketStats
+        });
+    } catch (err) {
+        console.error('Best-time API hatası:', err);
         res.status(500).json({ error: err.message });
     }
 });

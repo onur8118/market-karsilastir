@@ -1,0 +1,16 @@
+{
+    "name": "FiyatRadar — Market Fiyat Karşılaştırma",
+    "short_name": "FiyatRadar",
+    "description": "Türkiye'nin önde gelen marketlerindeki ürün fiyatlarını karşılaştırın.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0057A8",
+    "icons": [
+        {
+            "src": "/icon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

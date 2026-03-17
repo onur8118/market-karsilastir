@@ -9,11 +9,12 @@
         "scrape": "node run-scrape.js"
     },
     "dependencies": {
-        "sql.js": "^1.11.0",
+        "axios": "^1.13.6",
         "cheerio": "^1.0.0",
         "cors": "^2.8.5",
         "express": "^4.21.0",
         "node-cron": "^3.0.3",
-        "puppeteer": "^23.0.0"
+        "puppeteer": "^23.0.0",
+        "sql.js": "^1.11.0"
     }
 }

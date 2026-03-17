@@ -3,6 +3,7 @@ import { scrapeSok } from './sok.js';
 import { scrapeA101 } from './a101.js';
 import { scrapeMigros } from './migros.js';
 import { scrapeCarrefoursa } from './carrefoursa.js';
+import { scrapeHappyCenter } from './happycenter.js';
 import { scrapeMarketKarsilastir } from './marketkarsilastir.js';
 
 const scrapers = {
@@ -10,6 +11,7 @@ const scrapers = {
     a101: { name: 'A101', fn: scrapeA101 },
     migros: { name: 'Migros', fn: scrapeMigros },
     carrefoursa: { name: 'CarrefourSA', fn: scrapeCarrefoursa },
+    happycenter: { name: 'Happy Center', fn: scrapeHappyCenter },
     marketkarsilastir: { name: 'MarketKarsilastir', fn: scrapeMarketKarsilastir },
 };
 

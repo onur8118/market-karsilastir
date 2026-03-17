@@ -25,43 +25,7 @@ function extractBrand(name) {
     return name.split(' ')[0];
 }
 
-const CATEGORY_MAP = {
-    'sut-urunleri-kahvaltilik': 'sut-urunleri',
-    'meyve-sebze': 'meyve-sebze',
-    'et-tavuk-sarkuteri': 'et-tavuk',
-    'temel-gida': 'temel-gida',
-    'atistirmalik': 'atistirmalik',
-    'su-icecek': 'icecek',
-    'donuk-hazir-yemek-meze': 'dondurulmus',
-    'dondurulmus-urunler': 'dondurulmus',
-    'temizlik-urunleri': 'temizlik',
-    'kagit-urunleri': 'temizlik',
-    'kisisel-bakim': 'kisisel-bakim',
-    'anne-bebek': 'bebek',
-    'firindan': 'temel-gida',
-    'evcil-hayvan': 'temel-gida',
-};
-
-function guessCategory(url, name) {
-    const n = (name || '').toLowerCase();
-    // Keywords have priority for snacks
-    if (/çikolata|gofret|bisküvi|biskuvi|cips|kraker|nutella|doritos|helva|kek|kuruyemiş|kuruyemis|sakız|sakiz|sekerleme|şekerleme|chips/.test(n)) return 'atistirmalik';
-
-    const urlLower = (url || '').toLowerCase();
-    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
-        if (urlLower.includes(key)) return val;
-    }
-
-    if (/süt|yoğurt|peynir|ayran|tereyağ|krema|kaşar|lor/.test(n)) return 'sut-urunleri';
-    if (/su |cola|fanta|sprite|meyve suyu|çay|kahve|nescafe|lipton|soda/.test(n)) return 'icecek';
-    if (/deterjan|çamaşır|bulaşık|domestos|fairy|temiz|çöp|tuvalet/.test(n)) return 'temizlik';
-    if (/şampuan|sabun|diş|deodorant|krem|bakım|duş/.test(n)) return 'kisisel-bakim';
-    if (/makarna|pirinç|un |yağ|tuz|şeker|salça|konserve|çorba|bulgur/.test(n)) return 'temel-gida';
-    if (/dondurma|dondurulmuş/.test(n)) return 'atistirmalik';
-    if (/elma|portakal|domates|biber|muz|üzüm/.test(n)) return 'meyve-sebze';
-    if (/tavuk|et |dana|kıyma|köfte|sucuk|sosis|jambon/.test(n)) return 'et-tavuk';
-    return 'temel-gida';
-}
+import { guessCategory } from '../utils.js';
 
 export async function scrapeA101(db) {
     console.log('\n🔵 A101 scraping başlıyor (A101 Kapıda — Tüm Alt Kategoriler)...');
@@ -84,6 +48,16 @@ export async function scrapeA101(db) {
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1080 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        // Optimizasyon: Gereksiz kaynakları engelle
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
 
         // A101 Kapıda — All main categories (exactly as user described)
         const mainCategories = [

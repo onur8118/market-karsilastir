@@ -19,21 +19,7 @@ function extractBrand(name) {
     return name.split(' ')[0];
 }
 
-function guessCategory(name) {
-    const n = name.toLowerCase();
-    if (/süt|yoğurt|peynir|ayran|tereyağ|krema|kaşar/.test(n)) return 'sut-urunleri';
-    if (/su |cola|fanta|sprite|meyve suyu|çay|kahve|nescafe|lipton|soda/.test(n)) return 'icecek';
-    if (/çikolata|gofret|bisküvi|cips|kraker|nutella|doritos/.test(n)) return 'atistirmalik';
-    if (/deterjan|çamaşır|bulaşık|domestos|fairy|temiz/.test(n)) return 'temizlik';
-    if (/şampuan|sabun|diş|deodorant|krem|bakım/.test(n)) return 'kisisel-bakim';
-    if (/makarna|pirinç|un |yağ|tuz|şeker|salça|konserve|çorba/.test(n)) return 'temel-gida';
-    if (/dondurma/.test(n)) return 'atistirmalik';
-    if (/muz|elma|armut|portakal|domates|salatalık|biber|marul|patates|soğan|meyve|sebze|patlıcan|kabak|çilek|kavun|karpuz|kiraz|üzüm/.test(n)) return 'meyve-sebze';
-    if (/dana|kuzu|kıyma|kuşbaşı|antrikot|bonfile|pirzola|et |köfte|sucuk|salam|sosis|kavurma/.test(n)) return 'et-tavuk';
-    if (/tavuk|piliç|baget|kanat|göğüs|hindi/.test(n)) return 'et-tavuk';
-    if (/balık|levrek|çipura|somon|mezgit|karides|kalamar|midye/.test(n)) return 'et-tavuk';
-    return 'temel-gida';
-}
+import { guessCategory } from '../utils.js';
 
 export async function scrapeCarrefoursa(db) {
     console.log('\n🔷 CarrefourSA scraping başlıyor...');
@@ -50,6 +36,16 @@ export async function scrapeCarrefoursa(db) {
 
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        // Optimizasyon: Gereksiz kaynakları engelle
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
 
         const categoryUrls = [
             'https://www.carrefoursa.com/meyve/c/1015',

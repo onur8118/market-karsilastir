@@ -61,8 +61,17 @@ async function scrapeProductDetails(db, productUrl, productData, stats) {
 
         // Extract name, brand, and image if not provided
         if (!productData.name) {
-            productData.name = $('h2').first().text().trim() || $('h1').first().text().trim();
-            if (!productData.name) return; // Skip if still no name
+            // Find h2 or h1, but exclude elements that look like discount badges
+            const nameEl = $('h2, h1').filter((_, el) => {
+                const text = $(el).text().trim();
+                return text && !text.startsWith('%'); // Percent sign usually indicates a discount badge
+            }).first();
+
+            productData.name = nameEl.text().trim();
+            if (!productData.name) {
+                console.warn(`    ⚠️ İsim bulunamadı (URL: ${productUrl})`);
+                return;
+            }
         }
 
         if (!productData.brand) {
@@ -216,6 +225,6 @@ export async function scrapeMarketKarsilastir() {
 }
 
 // If run directly
-if (process.argv[1].includes('marketkarsilastir.js')) {
+if (process.argv[1] && process.argv[1].includes('marketkarsilastir.js')) {
     scrapeMarketKarsilastir().catch(console.error);
 }

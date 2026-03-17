@@ -1,36 +1,7 @@
 import * as cheerio from 'cheerio';
 import { upsertProduct, insertPrice, saveDb } from '../db.js';
 
-const CATEGORY_MAP = {
-    'sut-ve-sut-urunleri': 'sut-urunleri',
-    'icecek': 'icecek',
-    'kahvaltilik': 'temel-gida',
-    'yemeklik-malzemeler': 'temel-gida',
-    'atistirmaliklar': 'atistirmalik',
-    'temizlik': 'temizlik',
-    'kisisel-bakim-ve-kozmetik': 'kisisel-bakim',
-    'meyve-ve-sebze': 'meyve-sebze',
-    'et-ve-tavuk-ve-sarkuteri': 'et-tavuk',
-    'anne-bebek-ve-cocuk': 'bebek',
-};
-
-function guessCategory(url, name) {
-    const urlLower = (url || '').toLowerCase();
-    for (const [key, val] of Object.entries(CATEGORY_MAP)) {
-        if (urlLower.includes(key)) return val;
-    }
-    // Fallback: guess from name
-    const n = (name || '').toLowerCase();
-    if (/süt|yoğurt|peynir|ayran|tereyağ|krema|kaşar/.test(n)) return 'sut-urunleri';
-    if (/su |cola|fanta|sprite|meyve suyu|çay|kahve|nescafe|lipton|soda|ayran/.test(n)) return 'icecek';
-    if (/çikolata|gofret|bisküvi|cips|kraker|nutella|doritos|helva|kek/.test(n)) return 'atistirmalik';
-    if (/deterjan|çamaşır|bulaşık|domestos|fairy|temiz|çöp/.test(n)) return 'temizlik';
-    if (/şampuan|sabun|diş|deodorant|krem|bakım|duş/.test(n)) return 'kisisel-bakim';
-    if (/makarna|pirinç|un |yağ|tuz|şeker|salça|konserve|çorba|bulgur/.test(n)) return 'temel-gida';
-    if (/dondurma/.test(n)) return 'atistirmalik';
-    return 'temel-gida';
-
-}
+import { guessCategory } from '../utils.js';
 
 function extractBrand(name) {
     const brands = [

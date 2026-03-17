@@ -3,7 +3,7 @@ import { Chart, registerables } from 'chart.js';
 
 Chart.register(...registerables);
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'http://localhost:3005/api';
 
 // ============================================
 // STATE
@@ -84,9 +84,9 @@ async function loadInitialData() {
         state.categories = [{ id: 'hepsi', name: 'Tümü', icon: '🏪' }, ...(categoriesData || [])];
 
         if (statsData) {
-            document.getElementById('statProducts').textContent = statsData.totalProducts || 0;
-            document.getElementById('statMarkets').textContent = statsData.totalMarkets || 0;
-            document.getElementById('statCategories').textContent = (categoriesData || []).length;
+            animateCounter(document.getElementById('statProducts'), statsData.totalProducts || 0);
+            animateCounter(document.getElementById('statMarkets'), statsData.totalMarkets || 0);
+            animateCounter(document.getElementById('statCategories'), (categoriesData || []).length);
         }
 
         renderCategories();
@@ -441,7 +441,10 @@ function renderProducts(newProducts = [], reset = false) {
             .slice(0, 4)
             .map(p => {
                 const isCheapest = p.price === minPrice;
-                return `<span class="card-market-tag ${isCheapest ? 'cheapest' : ''}">${p.marketName || p.market_name} ${formatPrice(p.price)}</span>`;
+                const color = p.marketColor || '#888';
+                return `<span class="card-market-tag ${isCheapest ? 'cheapest' : ''}" style="${isCheapest ? `border-color:${color};color:${color}` : ''}">
+                  <span class="ctag-dot" style="background:${color}"></span>${p.marketName || p.market_name || p.marketId || ''} <strong>${formatPrice(p.price)}₺</strong>
+                </span>`;
             })
             .join('');
 
@@ -449,22 +452,31 @@ function renderProducts(newProducts = [], reset = false) {
       <div class="product-card" data-product-id="${product.id}" style="animation-delay: ${Math.min(index * 0.05, 0.4)}s">
         <div class="card-badges">
           ${discount > 5 ? `<span class="badge badge-discount">%${discount.toFixed(1)} Fark</span>` : ''}
-          <span class="badge badge-cheapest">En Ucuz: ${cheapest?.marketName || cheapest?.market_name || '?'}</span>
+          ${marketCount > 1
+                ? `<span class="badge badge-cheapest">En Ucuz: ${cheapest?.marketName || cheapest?.market_name || cheapest?.marketId || '?'}</span>`
+                : `<span class="badge badge-exclusive">Sadece bu markette</span>`
+            }
         </div>
         <div class="card-image">
-          <img src="${imgSrc}" alt="${product.name}" loading="lazy" onerror="this.src='${makeProductImage(product.name, product.category)}'"/>
+          <img src="${imgSrc}" alt="${product.name}" loading="lazy" 
+            onerror="this.src='${makeProductImage(product.name, product.category)}'"
+            style="transition: transform 0.35s cubic-bezier(0.4,0,0.2,1)"
+          />
         </div>
         <div class="card-content">
           <div class="card-brand">${product.brand || ''}</div>
           <div class="card-name">${product.name}</div>
-          <div class="card-price-row">
+          ${product.barcode ? `<div class="card-barcode">${product.barcode}</div>` : ''}
             <div class="card-price-main">
-              <span class="card-price-label">En düşük fiyat</span>
-              <span class="card-price-value">${formatPrice(minPrice)} <span class="currency">₺</span></span>
+              <span class="card-price-label">${marketCount > 1 ? 'En düşük fiyat' : 'Market fiyatı'}</span>
+              <span class="card-price-value">
+                ${formatPrice(minPrice)} <span class="currency">₺</span>
+                ${cheapest?.unitPrice ? `<span class="unit-price">(${formatPrice(cheapest.unitPrice.price)} ${cheapest.unitPrice.label})</span>` : ''}
+              </span>
             </div>
             <div class="card-price-range">
               ${maxPrice !== minPrice ? `<span class="card-price-max">${formatPrice(maxPrice)} ₺</span>` : ''}
-              <span class="card-market-count">${marketCount} markette</span>
+              <span class="card-market-count">${marketCount > 1 ? `${marketCount} markette` : 'Tek market'}</span>
             </div>
           </div>
           <div class="card-markets">${marketTags}</div>
@@ -518,7 +530,51 @@ async function openModal(productId) {
 
     const cat = state.categories.find(c => c.id === product.category);
     document.getElementById('modalCategory').textContent = cat ? `${cat.icon} ${cat.name}` : product.category || '';
-    document.getElementById('modalBarcode').textContent = product.barcode ? `📦 ${product.barcode}` : '';
+    document.getElementById('modalBarcode').textContent = product.barcode ? product.barcode : '';
+
+    // Equivalents (Muadiller)
+    let equivalentsSection = document.getElementById('modalEquivalentsSection');
+    if (!equivalentsSection) {
+        equivalentsSection = document.createElement('div');
+        equivalentsSection.id = 'modalEquivalentsSection';
+        equivalentsSection.className = 'modal-equivalents-section';
+        document.querySelector('.modal-right').appendChild(equivalentsSection);
+    }
+
+    const equivalents = product.equivalents || [];
+    if (equivalents.length > 0) {
+        equivalentsSection.style.display = 'block';
+        equivalentsSection.innerHTML = `
+            <h3 class="modal-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+              Diğer Market Alternatifleri
+            </h3>
+            <div class="equivalents-list">
+                ${equivalents.map(eq => {
+            const minEqPrice = eq.prices.length ? Math.min(...eq.prices.map(p => p.price)) : 0;
+            return `
+                        <div class="equivalent-item" data-id="${eq.id}">
+                            <img src="${eq.image_url || makeProductImage(eq.name, eq.category)}" class="equivalent-item-img" />
+                            <div class="equivalent-item-info">
+                                <div class="equivalent-item-brand">${eq.brand || ''}</div>
+                                <div class="equivalent-item-name">${eq.name}</div>
+                                <div class="equivalent-item-prices">
+                                    ${eq.prices.map(p => `<span class="eq-price-tag" style="color: ${p.marketColor}">${p.marketName}: ${formatPrice(p.price)} ₺</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+        }).join('')}
+            </div>
+        `;
+        equivalentsSection.querySelectorAll('.equivalent-item').forEach(item => {
+            item.addEventListener('click', () => {
+                openModal(item.dataset.id);
+            });
+        });
+    } else {
+        equivalentsSection.style.display = 'none';
+    }
 
     // Prices
     const prices = product.prices || [];
@@ -535,13 +591,17 @@ async function openModal(productId) {
       <div class="price-row ${isCheapest ? 'cheapest' : ''}">
         <div class="price-row-left">
           <span class="price-market-dot" style="background: ${color}"></span>
-          <span class="price-market-name">${p.marketName || p.market_name || ''}</span>
+          <span class="price-market-name">${p.marketName || p.market_name || p.marketId || ''}</span>
           <div class="price-row-badges">
-            ${isCheapest ? '<span class="price-badge">En Ucuz</span>' : ''}
+            ${prices.length > 1 && isCheapest ? '<span class="price-badge">En Ucuz</span>' : ''}
+            ${prices.length === 1 ? '<span class="price-badge">Lokal Ürün</span>' : ''}
           </div>
         </div>
         <div class="price-row-right">
-          <span class="price-value">${formatPrice(p.price)} ₺</span>
+          <span class="price-value">
+            ${formatPrice(p.price)} ₺
+            ${p.unitPrice ? `<span class="unit-price">(${formatPrice(p.unitPrice.price)} ${p.unitPrice.label})</span>` : ''}
+          </span>
           ${!isCheapest && diff > 0 ? `<span class="price-diff">+${formatPrice(diff)} ₺</span>` : ''}
         </div>
       </div>
@@ -550,6 +610,9 @@ async function openModal(productId) {
 
     // Chart
     renderPriceChart(product);
+
+    // Best Time to Buy
+    loadBestTime(productId);
 
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -560,6 +623,84 @@ function closeModal() {
     document.body.style.overflow = '';
     if (state.chart) { state.chart.destroy(); state.chart = null; }
 }
+
+// ============================================
+// BEST TIME TO BUY
+// ============================================
+async function loadBestTime(productId) {
+    // Find or create the best-time section in the modal
+    let section = document.getElementById('bestTimeSection');
+    if (!section) {
+        section = document.createElement('div');
+        section.id = 'bestTimeSection';
+        section.className = 'modal-best-time-section';
+        document.querySelector('.modal-right').appendChild(section);
+    }
+
+    section.innerHTML = `<div class="best-time-loading"><div class="spinner"></div> Analiz yükleniyor...</div>`;
+
+    try {
+        const data = await fetchAPI(`/products/${productId}/best-time`);
+
+        if (!data.hasData) {
+            section.innerHTML = '';
+            return;
+        }
+
+        const trendIcon = data.trend === 'rising' ? '📈' : data.trend === 'falling' ? '📉' : '➡️';
+        const trendLabel = data.trend === 'rising' ? 'Fiyat artıyor' : data.trend === 'falling' ? 'Fiyat düşüyor' : 'Fiyat stabil';
+        const trendColor = data.trend === 'rising' ? 'var(--danger)' : data.trend === 'falling' ? 'var(--success)' : 'var(--text-tertiary)';
+
+        const recommendation = data.isNearAllTimeMin
+            ? { icon: '✅', text: 'Şimdi Al!', sub: 'Fiyat tüm zamanlar düşüğüne yakın', color: 'var(--success)', bg: 'var(--success-bg)' }
+            : data.trend === 'falling'
+                ? { icon: '⏳', text: 'Bekle', sub: 'Fiyat düşmeye devam ediyor', color: 'var(--warning)', bg: 'var(--warning-bg)' }
+                : { icon: '🛒', text: 'Al', sub: `En ucuz: ${data.cheapestMarket?.marketName || '?'}`, color: 'var(--accent-primary)', bg: 'rgba(108,99,255,0.08)' };
+
+        const marketBars = (data.marketStats || []).map(m => {
+            const maxAvg = Math.max(...data.marketStats.map(ms => ms.avgPrice));
+            const pct = Math.round((m.avgPrice / maxAvg) * 100);
+            const isCheapest = m.marketId === data.marketStats[0]?.marketId;
+            return `
+            <div class="bt-market-row">
+                <span class="bt-market-dot" style="background:${m.marketColor}"></span>
+                <span class="bt-market-name">${m.marketName}</span>
+                <div class="bt-bar-wrap">
+                    <div class="bt-bar" style="width:${pct}%;background:${isCheapest ? 'var(--success)' : m.marketColor}55"></div>
+                </div>
+                <span class="bt-market-price">${formatPrice(m.avgPrice)} ₺</span>
+            </div>`;
+        }).join('');
+
+        section.innerHTML = `
+            <div class="best-time-header">
+                <h3 class="modal-section-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    En İyi Alım Zamanı
+                </h3>
+                <div class="bt-rec-badge" style="background:${recommendation.bg};color:${recommendation.color}">
+                    <span class="bt-rec-icon">${recommendation.icon}</span>
+                    <div>
+                        <div class="bt-rec-title">${recommendation.text}</div>
+                        <div class="bt-rec-sub">${recommendation.sub}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bt-trend-row">
+                <span style="color:${trendColor}">${trendIcon} ${trendLabel}</span>
+                <span class="bt-trend-pct" style="color:${trendColor}">${data.trendPct > 0 ? '+' : ''}${data.trendPct}%</span>
+                <span class="bt-alltime">Tüm zamanlar en düşük: <strong>${formatPrice(data.allTimeMin)} ₺</strong></span>
+            </div>
+            <div class="bt-markets">
+                <div class="bt-markets-title">Market Ortalama Fiyat Karşılaştırması</div>
+                ${marketBars}
+            </div>
+        `;
+    } catch (e) {
+        section.innerHTML = '';
+    }
+}
+
 
 // ============================================
 // CHART
@@ -638,4 +779,19 @@ function renderPriceChart(product) {
 // ============================================
 function formatPrice(price) {
     return price.toFixed(2).replace('.', ',');
+}
+
+function animateCounter(el, target) {
+    const duration = 1200;
+    const start = performance.now();
+    const initial = parseInt(el.textContent) || 0;
+    function step(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        const value = Math.round(initial + (target - initial) * eased);
+        el.textContent = value.toLocaleString('tr-TR');
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
 }

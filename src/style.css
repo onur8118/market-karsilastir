@@ -619,6 +619,9 @@ input {
 /* ============================================
    PRODUCT CARD
    ============================================ */
+/* ============================================
+   PRODUCT CARD POLISH
+   ============================================ */
 .product-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border-light);
@@ -627,44 +630,52 @@ input {
   cursor: pointer;
   transition: all var(--transition-smooth);
   position: relative;
+  animation: fadeInDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .product-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-card-hover);
-  border-color: rgba(108, 99, 255, 0.2);
-}
-
-.product-card:hover .card-image img {
-  transform: scale(1.05);
-}
-
-.card-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 2;
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--accent-primary);
 }
 
 .badge {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .badge-discount {
-  background: var(--danger);
+  background: rgba(239, 68, 68, 0.9);
   color: #fff;
 }
 
 .badge-cheapest {
-  background: var(--success);
+  background: rgba(16, 185, 129, 0.9);
   color: #fff;
+}
+
+.badge-exclusive {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-medium);
 }
 
 .card-image {
@@ -682,6 +693,10 @@ input {
   max-height: 160px;
   object-fit: contain;
   transition: transform var(--transition-smooth);
+}
+
+.product-card:hover .card-image img {
+  transform: scale(1.08);
 }
 
 .card-content {
@@ -702,12 +717,39 @@ input {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   line-height: 1.3;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  line-clamp: 2;
+}
+
+.card-barcode:empty {
+  display: none;
+}
+
+.card-barcode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  border: 1px dashed var(--border-medium);
+}
+
+.card-barcode::before {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 10px;
+  background: repeating-linear-gradient(90deg, #333, #333 1px, transparent 1px, transparent 3px, #333 3px, #333 4px, transparent 4px, transparent 5px);
+  margin-right: 6px;
+  opacity: 0.6;
 }
 
 .card-price-row {
@@ -741,6 +783,13 @@ input {
   font-weight: 600;
 }
 
+.unit-price {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
 .card-price-range {
   text-align: right;
 }
@@ -764,17 +813,31 @@ input {
 }
 
 .card-market-tag {
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-tertiary);
+  transition: border-color 0.2s;
+}
+
+.ctag-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .card-market-tag.cheapest {
   background: var(--success-bg);
+  border-color: var(--success);
   color: var(--success);
+  font-weight: 600;
 }
 
 /* ============================================
@@ -934,13 +997,44 @@ input {
 .modal-barcode {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
+  gap: 8px;
+  padding: 6px 14px;
   background: var(--bg-secondary);
-  border-radius: var(--radius-full);
-  font-size: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.modal-barcode {
+  position: relative;
+  font-family: 'Inter', monospace;
+  letter-spacing: 0.5px;
+}
+
+.modal-category:empty,
+.modal-barcode:empty {
+  display: none;
+}
+
+.modal-barcode::before {
+  content: "";
+  display: block;
+  width: 20px;
+  height: 12px;
+  background: repeating-linear-gradient(90deg, #333, #333 1px, transparent 1px, transparent 3px, #333 3px, #333 4px, transparent 4px, transparent 5px);
+  margin-right: 10px;
+  opacity: 0.8;
+}
+
+.modal-category:hover,
+.modal-barcode:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  transform: translateY(-1px);
 }
 
 .modal-right {
@@ -988,8 +1082,24 @@ input {
 }
 
 .price-row.cheapest {
-  background: var(--success-bg);
-  border: 1.5px solid rgba(16, 185, 129, 0.2);
+  background: linear-gradient(to right, var(--success-bg), #fff);
+  border: 1.5px solid var(--success);
+  position: relative;
+  overflow: hidden;
+}
+
+.price-row.cheapest::after {
+  content: "EN UCUZ";
+  position: absolute;
+  top: 10px;
+  right: -30px;
+  background: var(--success);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 30px;
+  transform: rotate(45deg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .price-row-left {
@@ -1210,7 +1320,8 @@ input {
 
 @media (max-width: 480px) {
   .products-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .hero-title {
@@ -1300,4 +1411,218 @@ input {
   to {
     transform: rotate(360deg);
   }
+}
+
+.price-row-badges {
+  display: flex;
+  gap: 4px;
+}
+
+.price-badge {
+  padding: 2px 8px;
+  background: rgba(108, 99, 255, 0.1);
+  color: var(--accent-primary);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+}
+
+/* Muadil Section Styles */
+.modal-equivalents-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-light);
+}
+
+.equivalents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.equivalent-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.equivalent-item:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.equivalent-item-img {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  background: white;
+  padding: 4px;
+}
+
+.equivalent-item-info {
+  flex: 1;
+}
+
+.equivalent-item-brand {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+}
+
+.equivalent-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.equivalent-item-prices {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.eq-price-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   BEST TIME TO BUY
+   ============================================ */
+.modal-best-time-section {
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-light);
+}
+
+.best-time-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+.best-time-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bt-rec-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+.bt-rec-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.bt-rec-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.bt-rec-sub {
+  font-size: 12px;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.bt-trend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.bt-trend-pct {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.bt-alltime {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.bt-markets-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.bt-market-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bt-market-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bt-market-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.bt-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.bt-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.bt-market-price {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  width: 60px;
+  text-align: right;
+  flex-shrink: 0;
 }
