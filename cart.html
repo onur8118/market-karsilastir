@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alışveriş Listem — FiyatRadar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+
+<body style="background: #F0F2F5;">
+    <!-- Simple Header -->
+    <header class="detail-header" style="background: white; border-bottom: 1px solid rgba(0,0,0,0.05);">
+        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
+            <a href="/" class="navbar-brand" style="margin: 0;">
+                <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
+            </a>
+            <div style="font-weight: 800; font-size: 18px; color: var(--secondary);">Alışveriş Listem 📋</div>
+            <a href="/" class="back-btn-premium" style="padding: 8px 20px;">← Keşfetmeye Devam Et</a>
+        </div>
+    </header>
+
+    <main class="container" style="padding-top: 40px; padding-bottom: 80px;">
+        <div id="cartGrid" class="cart-grid">
+            <!-- Left Side: List -->
+            <div class="cart-list-card">
+                <div class="cart-list-header">
+                    <h2 style="font-weight: 800; font-size: 22px; color: var(--secondary);">Ürün Listesi</h2>
+                    <button class="cart-clear-btn" onclick="clearCart()">🗑️ Listeyi Temizle</button>
+                </div>
+
+                <div class="cart-table-head">
+                    <div>Görsel</div>
+                    <div>Ürün Bilgisi</div>
+                    <div>Market</div>
+                    <div>En Ucuz</div>
+                    <div>İşlem</div>
+                </div>
+
+                <div id="cartItems">
+                    <!-- Rows injected here -->
+                </div>
+            </div>
+
+            <!-- Right Side: Summary Sidebar -->
+            <aside class="cart-summary-sidebar">
+                <h3 class="summary-title">📈 Liste Özeti</h3>
+
+                <div class="summary-row">
+                    <span>Toplam Ürün</span>
+                    <span id="totalItems">0 Adet</span>
+                </div>
+
+                <div class="summary-total">
+                    <span class="label">Tahmini Toplam Maliyet</span>
+                    <span id="grandTotal" class="value">0,00 ₺</span>
+                </div>
+
+                <div id="marketBreakdown" class="market-breakdown">
+                    <!-- Market based totals injected here -->
+                </div>
+
+                <div
+                    style="margin-top: 30px; padding: 20px; background: #FFFDF0; border: 1px solid #FFEBA0; border-radius: 16px; font-size: 13px; color: #856404; line-height: 1.5; font-weight: 600;">
+                    💡 En uygun marketi seçmek için listeyi karşılaştırın.
+                </div>
+            </aside>
+        </div>
+
+        <!-- Empty Cart View -->
+        <div id="emptyCart" style="display: none; padding: 120px 0; text-align: center;">
+            <div style="font-size: 80px; margin-bottom: 30px; opacity: 0.5;">📋</div>
+            <h2 style="font-weight: 800; color: var(--secondary); font-size: 28px; margin-bottom: 15px;">Listeniz Boş
+            </h2>
+            <p
+                style="color: var(--text-light); margin-bottom: 40px; font-size: 16px; max-width: 400px; margin-left: auto; margin-right: auto;">
+                Market fiyatlarını karşılaştırmak için ana sayfadan listeye ürün ekleyebilirsiniz.
+            </p>
+            <a href="/" class="back-btn-premium" style="padding: 18px 50px;">🛍️ Ürünleri Keşfet</a>
+        </div>
+    </main>
+
+    <script type="module" src="/src/cart.js"></script>
+</body>
+
+</html>

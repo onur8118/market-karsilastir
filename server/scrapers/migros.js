@@ -57,15 +57,7 @@ export async function scrapeMigros(db) {
         await page.setViewport({ width: 1920, height: 1080 });
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-        // Optimizasyon: Gereksiz kaynakları engelle
-        await page.setRequestInterception(true);
-        page.on('request', (req) => {
-            if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
+        /* Image blocking disabled to ensure data-src populates correctly */
 
         // Main Migros categories (from discovery script — main food/household categories)
         const mainCategories = [

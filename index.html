@@ -2,196 +2,133 @@
 <html lang="tr">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiyatRadar — Market Fiyat Karşılaştırma</title>
-  <meta name="description"
-    content="Türkiye'deki marketlerin ürün fiyatlarını anlık karşılaştırın. A101, BİM, ŞOK, Migros, CarrefourSA, Happy Center fiyatları tek platformda." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap"
     rel="stylesheet">
-  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="stylesheet" href="/src/style.css">
 </head>
 
 <body>
-
-  <!-- NAVBAR -->
-  <nav class="navbar" id="navbar">
-    <div class="navbar-inner">
-      <a href="#" class="navbar-brand">
-        <span class="brand-icon">📡</span>
-        <span class="brand-text">Fiyat<span class="brand-accent">Radar</span></span>
+  <!-- Header with Cart -->
+  <header class="header-wrapper">
+    <div class="container">
+      <!-- Top Right Cart Integration -->
+      <a href="/cart.html" target="_blank" class="cart-nav-link" id="cartNavLink">
+        <span>🛒 Sepetim</span>
+        <span class="cart-badge" id="cartBadge">0</span>
       </a>
-      <div class="navbar-search">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-        <input type="text" id="searchInput" placeholder="Ürün adı, marka veya barkod ara..." autocomplete="off" />
-        <kbd class="search-kbd">⌘K</kbd>
-      </div>
-      <div class="navbar-actions">
-        <button class="nav-btn" id="sortBtn" title="Sırala">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 6h18M3 12h12M3 18h6" />
-          </svg>
-        </button>
-        <div class="sort-dropdown" id="sortDropdown">
-          <button class="sort-option active" data-sort="default">Varsayılan</button>
-          <button class="sort-option" data-sort="price-asc">En Ucuz</button>
-          <button class="sort-option" data-sort="price-desc">En Pahalı</button>
-          <button class="sort-option" data-sort="discount">En Çok Fark</button>
-        </div>
-      </div>
-    </div>
-  </nav>
 
-  <!-- HERO SECTION -->
-  <section class="hero" id="hero">
-    <div class="hero-bg">
-      <div class="hero-blob blob-1"></div>
-      <div class="hero-blob blob-2"></div>
-      <div class="hero-blob blob-3"></div>
-    </div>
-    <div class="hero-content">
-      <h1 class="hero-title">
-        Marketlerde <span class="gradient-text">En Uygun Fiyatı</span> Bulun
-      </h1>
-      <p class="hero-subtitle">
-        Türkiye'nin önde gelen marketlerindeki binlerce ürünün fiyatlarını anlık olarak karşılaştırın, tasarruf edin.
-      </p>
-      <div class="hero-stats">
+      <a href="/" class="navbar-brand">
+        <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
+      </a>
+
+      <p class="hero-tagline">En geniş market ağıyla her üründe en ucuzunu anında bul, bütçeni koru.</p>
+
+      <div class="header-stats">
         <div class="stat-item">
-          <span class="stat-number" id="statProducts">—</span>
+          <span class="stat-value">7.000+</span>
           <span class="stat-label">Ürün</span>
         </div>
-        <div class="stat-divider"></div>
         <div class="stat-item">
-          <span class="stat-number" id="statMarkets">—</span>
+          <span class="stat-value">5+</span>
           <span class="stat-label">Market</span>
         </div>
-        <div class="stat-divider"></div>
         <div class="stat-item">
-          <span class="stat-number" id="statCategories">—</span>
-          <span class="stat-label">Kategori</span>
+          <span class="stat-value">Hergün</span>
+          <span class="stat-label">Güncel</span>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- CATEGORY BAR -->
-  <section class="category-section" id="categorySection">
+      <!-- Enlarged Dropdown Filters with Emojis -->
+      <div class="filters-section">
+        <!-- Marketler Dropdown -->
+        <div class="dropdown" id="marketDropdown">
+          <button class="dropdown-toggle" onclick="toggleDropdown('marketDropdown')">
+            🏪 Marketler <span>▼</span>
+          </button>
+          <div class="dropdown-menu" id="marketFilters">
+            <!-- Markets injected here -->
+          </div>
+        </div>
+
+        <!-- Kategoriler Dropdown -->
+        <div class="dropdown" id="categoryDropdown">
+          <button class="dropdown-toggle" onclick="toggleDropdown('categoryDropdown')">
+            📂 Kategoriler <span>▼</span>
+          </button>
+          <div class="dropdown-menu" id="categoryFilters">
+            <a href="/?category=atistirmalik" class="dropdown-item">🍪 Atıştırmalık</a>
+            <a href="/?category=sut-urunleri" class="dropdown-item">🧀 Süt Ürünleri</a>
+            <a href="/?category=temel-gida" class="dropdown-item">🌾 Temel Gıda</a>
+            <a href="/?category=icecek" class="dropdown-item">🥤 İçecekler</a>
+            <a href="/?category=temizlik" class="dropdown-item">🧹 Temizlik</a>
+            <a href="/?category=kisisel-bakim" class="dropdown-item">🧴 Kişisel Bakım</a>
+            <a href="/?category=meyve-sebze" class="dropdown-item">🍎 Meyve & Sebze</a>
+            <a href="/?category=et-tavuk" class="dropdown-item">🥩 Et & Tavuk</a>
+            <a href="/?category=dondurulmus" class="dropdown-item">🧊 Dondurulmuş</a>
+            <a href="/?category=bebek" class="dropdown-item">👶 Bebek</a>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultsCount" style="font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 15px; font-weight: 600;">
+        ...</div>
+    </div>
+  </header>
+
+  <!-- Search Area -->
+  <section class="search-section">
     <div class="container">
-      <div class="section-header">
-        <h2 class="section-title">Kategoriler</h2>
-      </div>
-      <div class="category-scroll" id="categoryScroll">
-        <!-- JS fills this -->
-      </div>
-    </div>
-  </section>
-
-  <!-- MARKET FILTER BAR -->
-  <section class="market-filter-section">
-    <div class="container">
-      <div class="market-filter-bar" id="marketFilterBar">
-        <!-- JS fills this -->
-      </div>
-    </div>
-  </section>
-
-  <!-- RESULTS INFO BAR -->
-  <section class="results-bar">
-    <div class="container">
-      <div class="results-info">
-        <span id="resultsCount">Yükleniyor...</span>
-        <div class="active-filters" id="activeFilters"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- PRODUCTS GRID -->
-  <section class="products-section">
-    <div class="container">
-      <div class="products-grid" id="productsGrid">
-        <!-- JS fills this -->
-      </div>
-      <div class="no-results" id="noResults" style="display:none;">
-        <span class="no-results-icon">🔍</span>
-        <h3>Ürün bulunamadı</h3>
-        <p>Arama kriterlerinizi değiştirmeyi deneyin.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- PRODUCT DETAIL MODAL -->
-  <div class="modal-overlay" id="modalOverlay">
-    <div class="modal" id="productModal">
-      <button class="modal-close" id="modalClose">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6 6 18M6 6l12 12" />
+      <div class="search-container">
+        <svg class="search-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-      </button>
-      <div class="modal-body">
-        <div class="modal-left">
-          <div class="modal-image-wrap">
-            <img id="modalImage" src="" alt="" />
-          </div>
-          <div class="modal-product-info">
-            <span class="modal-brand" id="modalBrand"></span>
-            <h2 class="modal-product-name" id="modalName"></h2>
-            <div class="modal-meta">
-              <span class="modal-category" id="modalCategory"></span>
-              <span class="modal-barcode" id="modalBarcode"></span>
-            </div>
-          </div>
-        </div>
-        <div class="modal-right">
-          <div class="modal-prices-section">
-            <h3 class="modal-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
-                <line x1="7" y1="7" x2="7.01" y2="7" />
-              </svg>
-              Güncel Fiyatlar
-            </h3>
-            <div class="price-comparison-list" id="priceComparisonList">
-              <!-- JS fills -->
-            </div>
-          </div>
-          <div class="modal-chart-section">
-            <h3 class="modal-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-              Fiyat Geçmişi
-            </h3>
-            <div class="chart-container">
-              <canvas id="priceChart"></canvas>
-            </div>
-          </div>
-        </div>
+        <input type="text" id="searchInput" class="main-search-input" placeholder="Ürün veya kategori ara...">
       </div>
+    </div>
+  </section>
+
+  <!-- Product Grid -->
+  <main class="container">
+    <div id="productGrid" class="products-grid">
+      <!-- Products injected here -->
+    </div>
+
+    <div id="loading" style="text-align: center; padding: 60px; display: none;">
+      <div style="font-weight: 700; color: var(--secondary); letter-spacing: 1px;">YÜKLENİYOR...</div>
+    </div>
+
+    <div id="scrollEnd" style="height: 100px;"></div>
+  </main>
+
+  <!-- Product Detail Modal -->
+  <div id="productModal" class="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-body" id="modalContent" style="display: flex; width: 100%;"></div>
     </div>
   </div>
 
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-inner">
-        <div class="footer-brand">
-          <span class="brand-icon">📡</span>
-          <span class="brand-text">Fiyat<span class="brand-accent">Radar</span></span>
-        </div>
-        <p class="footer-text">A101, BİM, ŞOK, Migros, CarrefourSA ve Happy Center fiyatları otomatik güncelleniyor.</p>
-        <p class="footer-copy">© 2026 FiyatRadar. Veriler bilgilendirme amaçlıdır.</p>
-      </div>
-    </div>
-  </footer>
-
   <script type="module" src="/src/main.js"></script>
+  <script>
+    window.toggleDropdown = (id) => {
+      const el = document.getElementById(id);
+      const isOpen = el.classList.contains('open');
+      document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('open'));
+      if (!isOpen) el.classList.add('open');
+    };
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('open'));
+      }
+    });
+  </script>
 </body>
 
 </html>

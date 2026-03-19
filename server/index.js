@@ -19,7 +19,7 @@ app.use(express.json());
 app.get('/api/products', async (req, res) => {
     try {
         const db = await getDb();
-        const { q, category, market, sort, page = 1, limit = 60 } = req.query;
+        const { q, category, market, brand, sort, page = 1, limit = 60 } = req.query;
         const offset = (page - 1) * limit;
 
         let queryCount = `
@@ -63,6 +63,13 @@ app.get('/api/products', async (req, res) => {
             query += catClause;
             queryCount += catClause;
             params.push(category);
+        }
+
+        if (brand) {
+            const brandClause = ` AND p.brand = ?`;
+            query += brandClause;
+            queryCount += brandClause;
+            params.push(brand);
         }
 
         if (market) {
@@ -119,6 +126,10 @@ app.get('/api/products', async (req, res) => {
         if (market) {
             paginatedProductsQuery += ` AND pr.market_id = ?`;
             paginatedParams.push(market);
+        }
+        if (brand) {
+            paginatedProductsQuery += ` AND p.brand = ?`;
+            paginatedParams.push(brand);
         }
 
         paginatedProductsQuery += ` GROUP BY p.id`;
@@ -583,6 +594,24 @@ app.get('/api/scrape/logs', async (req, res) => {
             return obj;
         });
         res.json(logs);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/brands — get unique brands
+app.get('/api/brands', async (req, res) => {
+    try {
+        const db = await getDb();
+        const result = db.exec(`
+            SELECT DISTINCT brand 
+            FROM products 
+            WHERE brand IS NOT NULL AND brand != '' AND SUBSTR(brand, 1, 1) != '%'
+            ORDER BY brand ASC
+        `);
+        if (!result.length || !result[0].values.length) return res.json([]);
+        const brands = result[0].values.map(v => v[0]);
+        res.json(brands);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

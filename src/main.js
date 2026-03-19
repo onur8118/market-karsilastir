@@ -15,117 +15,138 @@ const state = {
     sortBy: 'default',
     chart: null,
     products: [],
-    categories: [],
     markets: [],
     loading: false,
-    // Pagination state
     page: 1,
-    limit: 60,
+    limit: 50,
     total: 0,
     hasMore: true,
     loadingMore: false,
+    cart: JSON.parse(localStorage.getItem('fiyatradar_cart') || '[]'),
 };
-
-// ============================================
-// SVG Image generation (for products without images)
-// ============================================
-const categoryColors = {
-    'icecek': { bg: '#EEF2FF', fg: '#4F46E5', emoji: '🥤' },
-    'sut-urunleri': { bg: '#F0FDF4', fg: '#16A34A', emoji: '🧀' },
-    'atistirmalik': { bg: '#FFF7ED', fg: '#EA580C', emoji: '🍫' },
-    'temizlik': { bg: '#F0F9FF', fg: '#0284C7', emoji: '🧹' },
-    'kisisel-bakim': { bg: '#FDF4FF', fg: '#C026D3', emoji: '🧴' },
-    'temel-gida': { bg: '#FEFCE8', fg: '#CA8A04', emoji: '🌾' },
-    'meyve-sebze': { bg: '#F0FDF4', fg: '#16A34A', emoji: '🍎' },
-    'et-tavuk': { bg: '#FEF2F2', fg: '#DC2626', emoji: '🥩' },
-    'dondurulmus': { bg: '#EFF6FF', fg: '#2563EB', emoji: '🧊' },
-    'bebek': { bg: '#FFF1F2', fg: '#E11D48', emoji: '👶' },
-};
-
-function makeProductImage(name, category) {
-    const colors = categoryColors[category] || { bg: '#F3F4F6', fg: '#6B7280', emoji: '📦' };
-    const displayName = name.length > 24 ? name.substring(0, 22) + '…' : name;
-    const escaped = displayName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-    <rect width="200" height="200" rx="16" fill="${colors.bg}"/>
-    <text x="100" y="90" text-anchor="middle" font-size="60">${colors.emoji}</text>
-    <text x="100" y="135" text-anchor="middle" font-family="Inter,sans-serif" font-size="13" font-weight="600" fill="${colors.fg}">${escaped}</text>
-  </svg>`;
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function getProductImage(product) {
-    if (product.image_url && product.image_url.startsWith('http')) {
-        return product.image_url;
-    }
-    return makeProductImage(product.name, product.category);
-}
 
 // ============================================
 // INIT
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('category')) state.activeCategory = params.get('category');
+    if (params.has('market')) state.activeMarket = params.get('market');
+    if (params.has('q')) state.searchQuery = params.get('q');
+
     setupEventListeners();
+    updateCartBadge();
     await loadInitialData();
 });
 
 async function loadInitialData() {
     state.loading = true;
-    renderSkeleton(); // Add a skeleton loader
+    renderSkeleton();
 
     try {
-        const [marketsData, categoriesData, statsData] = await Promise.all([
-            fetchAPI('/markets'),
-            fetchAPI('/categories'),
-            fetchAPI('/stats'),
-        ]);
+        const [marketsData] = await Promise.allSettled([fetchAPI('/markets')]);
+        state.markets = marketsData.status === 'fulfilled' ? marketsData.value : [];
 
-        state.markets = marketsData || [];
-        state.categories = [{ id: 'hepsi', name: 'Tümü', icon: '🏪' }, ...(categoriesData || [])];
-
-        if (statsData) {
-            animateCounter(document.getElementById('statProducts'), statsData.totalProducts || 0);
-            animateCounter(document.getElementById('statMarkets'), statsData.totalMarkets || 0);
-            animateCounter(document.getElementById('statCategories'), (categoriesData || []).length);
-        }
-
-        renderCategories();
-        renderMarketFilters();
-
-        // Initial products load
+        renderMarketDropdown();
         await loadProducts(true);
-
         setupInfiniteScroll();
-
     } catch (err) {
-        console.warn('⚠️ API hatası, demo verisi yükleniyor...', err);
-        // ... demo data fallback remains same or similar ...
-        loadDemoData();
+        console.warn('Init error:', err);
+        await loadProducts(true);
     } finally {
         state.loading = false;
     }
 }
 
+// ============================================
+// CART LOGIC
+// ============================================
+function updateCartBadge() {
+    const badge = document.getElementById('cartBadge');
+    if (badge) {
+        badge.textContent = state.cart.length;
+        badge.style.display = state.cart.length > 0 ? 'inline-block' : 'none';
+    }
+}
+
+window.addToCart = (productId, event) => {
+    if (event) event.stopPropagation();
+
+    const product = state.products.find(p => p.id === productId);
+    if (!product) return;
+
+    const prices = product.prices || [];
+    const minPrice = prices.length ? Math.min(...prices.map(p => p.price)) : 0;
+    const bestMarket = prices.find(p => p.price === minPrice) || {};
+
+    const cartItem = {
+        id: product.id,
+        name: product.name,
+        brand: product.brand,
+        image: getProductImage(product),
+        price: minPrice,
+        market: bestMarket.marketName || bestMarket.marketId,
+        marketColor: bestMarket.marketColor,
+        dateAdded: new Date().toISOString()
+    };
+
+    state.cart.push(cartItem);
+    localStorage.setItem('fiyatradar_cart', JSON.stringify(state.cart));
+    updateCartBadge();
+    showToast(`${product.name} sepete eklendi! 🛒`);
+};
+
+function getProductImage(product) {
+    if (product.image_url) return product.image_url;
+    if (product.barcode) return `https://marketkarsilastir.com/urunler/${product.barcode}.jpg`;
+    return '/placeholder.png';
+}
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+        background: var(--secondary); color: white; padding: 12px 24px;
+        border-radius: 50px; font-weight: 700; z-index: 9999;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: fadeInUp 0.3s ease-out;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.animation = 'fadeOutDown 0.3s ease-in';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+window.addEventListener('storage', (e) => {
+    if (e.key === 'fiyatradar_cart') {
+        state.cart = JSON.parse(e.newValue || '[]');
+        updateCartBadge();
+    }
+});
+
+// ============================================
+// PRODUCT FETCHING & RENDERING
+// ============================================
 async function loadProducts(reset = false) {
     if (reset) {
         state.page = 1;
         state.products = [];
         state.hasMore = true;
-        document.getElementById('productsGrid').innerHTML = '';
+        document.getElementById('productGrid').innerHTML = '';
     }
 
     if (!state.hasMore || state.loadingMore) return;
-
     state.loadingMore = true;
-    showLoader();
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'block';
 
     try {
         const query = new URLSearchParams({
             page: state.page,
             limit: state.limit,
             q: state.searchQuery,
-            category: state.activeCategory,
-            sort: state.sortBy
+            category: state.activeCategory
         });
         if (state.activeMarket) query.append('market', state.activeMarket);
 
@@ -141,657 +162,104 @@ async function loadProducts(reset = false) {
             updateResultsInfo();
         }
     } catch (err) {
-        console.error('Ürün yükleme hatası:', err);
+        console.error('Fetch error:', err);
     } finally {
         state.loadingMore = false;
-        hideLoader();
+        if (loadingEl) loadingEl.style.display = 'none';
     }
-}
-
-function setupInfiniteScroll() {
-    const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && state.hasMore && !state.loadingMore) {
-            loadProducts();
-        }
-    }, { threshold: 0.1 });
-
-    // Create a sentinel element at the bottom of the grid
-    let sentinel = document.getElementById('infinite-scroll-sentinel');
-    if (!sentinel) {
-        sentinel = document.createElement('div');
-        sentinel.id = 'infinite-scroll-sentinel';
-        sentinel.style.height = '100px';
-        sentinel.style.width = '100%';
-        document.querySelector('.products-section .container').appendChild(sentinel);
-    }
-    observer.observe(sentinel);
 }
 
 function updateResultsInfo() {
     const resultsCount = document.getElementById('resultsCount');
-    resultsCount.textContent = `${state.total} ürün (${state.products.length} yüklendi)`;
+    if (resultsCount) resultsCount.textContent = `${state.total} ürün listeleniyor`;
 }
 
-function showLoader() {
-    let loader = document.getElementById('bottom-loader');
-    if (!loader) {
-        loader = document.createElement('div');
-        loader.id = 'bottom-loader';
-        loader.innerHTML = '<div class="spinner"></div><span>Yeni ürünler yükleniyor...</span>';
-        document.querySelector('.products-section .container').appendChild(loader);
-    }
-    loader.style.display = 'flex';
-}
+function renderProducts(newProducts = [], reset = false) {
+    const grid = document.getElementById('productGrid');
 
-function hideLoader() {
-    const loader = document.getElementById('bottom-loader');
-    if (loader) loader.style.display = 'none';
-}
+    const html = newProducts.map((product) => {
+        const prices = product.prices || [];
+        const minPrice = prices.length ? Math.min(...prices.map(p => p.price)) : 0;
+        const marketCount = prices.length;
+        const imgSrc = getProductImage(product);
 
-function renderSkeleton() {
-    const grid = document.getElementById('productsGrid');
-    grid.innerHTML = Array(8).fill(0).map(() => `
-        <div class="product-card skeleton">
-            <div class="card-image"></div>
-            <div class="card-content">
-                <div class="skeleton-line" style="width: 40%"></div>
-                <div class="skeleton-line" style="width: 80%"></div>
-                <div class="skeleton-line" style="width: 60%"></div>
+        return `
+            <div class="product-card" onclick="window.open('/product.html?id=${product.id}', '_blank')">
+                <div class="card-image">
+                    <img src="${imgSrc}" alt="${product.name}" 
+                         loading="lazy"
+                         onerror="this.onerror=null; this.src='/placeholder.png';">
+                </div>
+                <div class="card-name">${product.name}</div>
+                <div class="card-market-count">${marketCount} Markette Mevcut</div>
+                
+                <div class="card-price-main">
+                    <span class="card-price-value">${formatPrice(minPrice)} ₺</span>
+                    <span style="font-size: 9px; background: #E6F6FF; color: #0088CC; padding: 2px 6px; border-radius: 4px; font-weight: 800;">EN UCUZ</span>
+                </div>
+                
+                <button class="add-to-cart-btn" onclick="addToCart(${product.id}, event)">
+                    Sepete Ekle 🛒
+                </button>
             </div>
-        </div>
-    `).join('');
-}
+        `;
+    }).join('');
 
-async function loadDemoData() {
-    const { products } = await import('./data/products.js');
-    const { categories } = await import('./data/categories.js');
-    const { markets } = await import('./data/markets.js');
-
-    state.products = products.map(p => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        category: p.category,
-        barcode: p.barcode,
-        image_url: p.image,
-        prices: p.prices.map(pr => ({
-            marketId: pr.marketId,
-            marketName: markets.find(m => m.id === pr.marketId)?.name || pr.marketId,
-            marketColor: markets.find(m => m.id === pr.marketId)?.color || '#666',
-            price: pr.price,
-            date: pr.date,
-        })),
-        priceHistory: p.priceHistory,
-    }));
-    state.categories = categories;
-    state.markets = markets.map(m => ({ id: m.id, name: m.name, color: m.color, bg_color: m.bgColor }));
-    state.total = state.products.length;
-    state.hasMore = false;
-
-    renderCategories();
-    renderMarketFilters();
-    renderProducts(state.products, true);
-    updateResultsInfo();
-}
-
-async function fetchAPI(path) {
-    const response = await fetch(`${API_BASE}${path}`);
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-    return response.json();
+    if (reset) grid.innerHTML = html;
+    else grid.insertAdjacentHTML('beforeend', html);
 }
 
 // ============================================
-// EVENT LISTENERS
+// EVENTS
 // ============================================
 function setupEventListeners() {
-    // Search
     const searchInput = document.getElementById('searchInput');
+    if (state.searchQuery) searchInput.value = state.searchQuery;
+
     let debounceTimer;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             state.searchQuery = e.target.value.trim().toLowerCase();
             loadProducts(true);
-        }, 300);
-    });
-
-    // Keyboard shortcut
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            searchInput.focus();
-        }
-        if (e.key === 'Escape') closeModal();
-    });
-
-    // Navbar scroll
-    const navbar = document.getElementById('navbar');
-    window.addEventListener('scroll', () => {
-        navbar.classList.toggle('scrolled', window.scrollY > 10);
-    });
-
-    // Sort
-    const sortBtn = document.getElementById('sortBtn');
-    const sortDropdown = document.getElementById('sortDropdown');
-    sortBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sortDropdown.classList.toggle('open');
-    });
-    document.addEventListener('click', () => sortDropdown.classList.remove('open'));
-    sortDropdown.querySelectorAll('.sort-option').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            state.sortBy = btn.dataset.sort;
-            sortDropdown.querySelectorAll('.sort-option').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            sortDropdown.classList.remove('open');
-            loadProducts(true);
-        });
-    });
-
-    // Modal close
-    document.getElementById('modalClose').addEventListener('click', closeModal);
-    document.getElementById('modalOverlay').addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) closeModal();
+            const url = new URL(window.location);
+            if (state.searchQuery) url.searchParams.set('q', state.searchQuery);
+            else url.searchParams.delete('q');
+            window.history.replaceState({}, '', url);
+        }, 3000); // Debounce set to 3s for user preference or performance
     });
 }
 
-// ============================================
-// RENDER CATEGORIES
-// ============================================
-function renderCategories() {
-    const container = document.getElementById('categoryScroll');
-    container.innerHTML = state.categories.map(cat => `
-    <button class="category-chip ${cat.id === state.activeCategory ? 'active' : ''}" data-category="${cat.id}">
-      <span class="chip-icon">${cat.icon}</span>
-      ${cat.name}
-    </button>
-  `).join('');
-
-    container.querySelectorAll('.category-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            state.activeCategory = chip.dataset.category;
-            container.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            loadProducts(true);
-        });
-    });
+function setupInfiniteScroll() {
+    const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && state.hasMore && !state.loadingMore) loadProducts();
+    }, { threshold: 0.1 });
+    const scrollEnd = document.getElementById('scrollEnd');
+    if (scrollEnd) observer.observe(scrollEnd);
 }
 
-// ============================================
-// RENDER MARKET FILTERS
-// ============================================
-function renderMarketFilters() {
-    const container = document.getElementById('marketFilterBar');
+function renderMarketDropdown() {
+    const container = document.getElementById('marketFilters');
+    if (!container) return;
 
-    const allChip = `<button class="market-chip ${!state.activeMarket ? 'active' : ''}" data-market=""
-    style="--market-color: var(--accent-primary); --market-bg: rgba(108,99,255,0.06);">
-    <span class="market-dot" style="background: var(--accent-primary)"></span>
-    Tüm Marketler
-  </button>`;
-
-    const marketChips = state.markets.map(m => `
-    <button class="market-chip ${state.activeMarket === m.id ? 'active' : ''}"
-      data-market="${m.id}"
-      style="--market-color: ${m.color}; --market-bg: ${m.bg_color || m.bgColor || 'rgba(0,0,0,0.04)'};">
-      <span class="market-dot" style="background: ${m.color}"></span>
-      ${m.name}
-    </button>
-  `).join('');
-
-    container.innerHTML = allChip + marketChips;
-
-    container.querySelectorAll('.market-chip').forEach(chip => {
-        chip.addEventListener('click', () => {
-            state.activeMarket = chip.dataset.market || null;
-            container.querySelectorAll('.market-chip').forEach(c => c.classList.remove('active'));
-            chip.classList.add('active');
-            loadProducts(true);
-        });
-    });
-}
-
-// ============================================
-// FILTER & SORT
-// ============================================
-function getFilteredProducts() {
-    let filtered = [...state.products];
-
-    if (state.searchQuery) {
-        filtered = filtered.filter(p =>
-            p.name.toLowerCase().includes(state.searchQuery) ||
-            (p.brand || '').toLowerCase().includes(state.searchQuery) ||
-            (p.barcode || '').includes(state.searchQuery)
-        );
-    }
-
-    if (state.activeCategory !== 'hepsi') {
-        filtered = filtered.filter(p => p.category === state.activeCategory);
-    }
-
-    if (state.activeMarket) {
-        filtered = filtered.filter(p =>
-            p.prices.some(pr => pr.marketId === state.activeMarket)
-        );
-    }
-
-    switch (state.sortBy) {
-        case 'price-asc':
-            filtered.sort((a, b) => getMinPrice(a) - getMinPrice(b));
-            break;
-        case 'price-desc':
-            filtered.sort((a, b) => getMinPrice(b) - getMinPrice(a));
-            break;
-        case 'discount':
-            filtered.sort((a, b) => getDiscountPercent(b) - getDiscountPercent(a));
-            break;
-    }
-
-    return filtered;
-}
-
-function getMinPrice(product) {
-    return Math.min(...product.prices.map(p => p.price));
-}
-
-function getMaxPrice(product) {
-    return Math.max(...product.prices.map(p => p.price));
-}
-
-function getDiscountPercent(product) {
-    const min = getMinPrice(product);
-    const max = getMaxPrice(product);
-    return max > 0 ? ((max - min) / max) * 100 : 0;
-}
-
-function getCheapestMarket(product) {
-    const min = getMinPrice(product);
-    return product.prices.find(p => p.price === min);
-}
-
-// ============================================
-// RENDER PRODUCTS
-// ============================================
-function renderProducts(newProducts = [], reset = false) {
-    const grid = document.getElementById('productsGrid');
-    const noResults = document.getElementById('noResults');
-
-    if (reset) {
-        grid.innerHTML = '';
-        if (newProducts.length === 0) {
-            grid.style.display = 'none';
-            noResults.style.display = 'block';
-            return;
-        }
-    }
-
-    noResults.style.display = 'none';
-    grid.style.display = 'grid';
-
-    const html = newProducts.map((product, index) => {
-        const minPrice = getMinPrice(product);
-        const maxPrice = getMaxPrice(product);
-        const discount = getDiscountPercent(product);
-        const cheapest = getCheapestMarket(product);
-        const marketCount = product.prices.length;
-        const imgSrc = getProductImage(product);
-
-        const marketTags = product.prices
-            .sort((a, b) => a.price - b.price)
-            .slice(0, 4)
-            .map(p => {
-                const isCheapest = p.price === minPrice;
-                const color = p.marketColor || '#888';
-                return `<span class="card-market-tag ${isCheapest ? 'cheapest' : ''}" style="${isCheapest ? `border-color:${color};color:${color}` : ''}">
-                  <span class="ctag-dot" style="background:${color}"></span>${p.marketName || p.market_name || p.marketId || ''} <strong>${formatPrice(p.price)}₺</strong>
-                </span>`;
-            })
-            .join('');
-
-        return `
-      <div class="product-card" data-product-id="${product.id}" style="animation-delay: ${Math.min(index * 0.05, 0.4)}s">
-        <div class="card-badges">
-          ${discount > 5 ? `<span class="badge badge-discount">%${discount.toFixed(1)} Fark</span>` : ''}
-          ${marketCount > 1
-                ? `<span class="badge badge-cheapest">En Ucuz: ${cheapest?.marketName || cheapest?.market_name || cheapest?.marketId || '?'}</span>`
-                : `<span class="badge badge-exclusive">Sadece bu markette</span>`
-            }
-        </div>
-        <div class="card-image">
-          <img src="${imgSrc}" alt="${product.name}" loading="lazy" 
-            onerror="this.src='${makeProductImage(product.name, product.category)}'"
-            style="transition: transform 0.35s cubic-bezier(0.4,0,0.2,1)"
-          />
-        </div>
-        <div class="card-content">
-          <div class="card-brand">${product.brand || ''}</div>
-          <div class="card-name">${product.name}</div>
-          ${product.barcode ? `<div class="card-barcode">${product.barcode}</div>` : ''}
-            <div class="card-price-main">
-              <span class="card-price-label">${marketCount > 1 ? 'En düşük fiyat' : 'Market fiyatı'}</span>
-              <span class="card-price-value">
-                ${formatPrice(minPrice)} <span class="currency">₺</span>
-                ${cheapest?.unitPrice ? `<span class="unit-price">(${formatPrice(cheapest.unitPrice.price)} ${cheapest.unitPrice.label})</span>` : ''}
-              </span>
-            </div>
-            <div class="card-price-range">
-              ${maxPrice !== minPrice ? `<span class="card-price-max">${formatPrice(maxPrice)} ₺</span>` : ''}
-              <span class="card-market-count">${marketCount > 1 ? `${marketCount} markette` : 'Tek market'}</span>
-            </div>
-          </div>
-          <div class="card-markets">${marketTags}</div>
-        </div>
-      </div>
+    container.innerHTML = `
+        <a href="/?market=" class="dropdown-item">Tüm Marketler</a>
+        ${state.markets.map(m => `
+            <a href="/?market=${m.id}" target="_blank" class="dropdown-item">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${m.color}; display: inline-block; margin-right: 8px;"></span>
+                ${m.name}
+            </a>
+        `).join('')}
     `;
-    }).join('');
-
-    if (reset) {
-        grid.innerHTML = html;
-    } else {
-        grid.insertAdjacentHTML('beforeend', html);
-    }
-
-    grid.querySelectorAll('.product-card').forEach(card => {
-        if (!card.hasListener) {
-            card.addEventListener('click', () => {
-                openModal(card.dataset.productId);
-            });
-            card.hasListener = true;
-        }
-    });
 }
 
-// ============================================
-// MODAL
-// ============================================
-async function openModal(productId) {
-    const overlay = document.getElementById('modalOverlay');
-
-    // Try to get detailed data from API
-    let product;
-    try {
-        product = await fetchAPI(`/products/${productId}`);
-        // Ensure image
-        if (!product.image_url || !product.image_url.startsWith('http')) {
-            product.image_url = makeProductImage(product.name, product.category);
-        }
-    } catch {
-        // Fallback to local state
-        product = state.products.find(p => p.id === productId || p.id === parseInt(productId));
-        if (!product) return;
-    }
-
-    const imgSrc = product.image_url || getProductImage(product);
-
-    document.getElementById('modalImage').src = imgSrc;
-    document.getElementById('modalImage').alt = product.name;
-    document.getElementById('modalBrand').textContent = product.brand || '';
-    document.getElementById('modalName').textContent = product.name;
-
-    const cat = state.categories.find(c => c.id === product.category);
-    document.getElementById('modalCategory').textContent = cat ? `${cat.icon} ${cat.name}` : product.category || '';
-    document.getElementById('modalBarcode').textContent = product.barcode ? product.barcode : '';
-
-    // Equivalents (Muadiller)
-    let equivalentsSection = document.getElementById('modalEquivalentsSection');
-    if (!equivalentsSection) {
-        equivalentsSection = document.createElement('div');
-        equivalentsSection.id = 'modalEquivalentsSection';
-        equivalentsSection.className = 'modal-equivalents-section';
-        document.querySelector('.modal-right').appendChild(equivalentsSection);
-    }
-
-    const equivalents = product.equivalents || [];
-    if (equivalents.length > 0) {
-        equivalentsSection.style.display = 'block';
-        equivalentsSection.innerHTML = `
-            <h3 class="modal-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
-              Diğer Market Alternatifleri
-            </h3>
-            <div class="equivalents-list">
-                ${equivalents.map(eq => {
-            const minEqPrice = eq.prices.length ? Math.min(...eq.prices.map(p => p.price)) : 0;
-            return `
-                        <div class="equivalent-item" data-id="${eq.id}">
-                            <img src="${eq.image_url || makeProductImage(eq.name, eq.category)}" class="equivalent-item-img" />
-                            <div class="equivalent-item-info">
-                                <div class="equivalent-item-brand">${eq.brand || ''}</div>
-                                <div class="equivalent-item-name">${eq.name}</div>
-                                <div class="equivalent-item-prices">
-                                    ${eq.prices.map(p => `<span class="eq-price-tag" style="color: ${p.marketColor}">${p.marketName}: ${formatPrice(p.price)} ₺</span>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-        }).join('')}
-            </div>
-        `;
-        equivalentsSection.querySelectorAll('.equivalent-item').forEach(item => {
-            item.addEventListener('click', () => {
-                openModal(item.dataset.id);
-            });
-        });
-    } else {
-        equivalentsSection.style.display = 'none';
-    }
-
-    // Prices
-    const prices = product.prices || [];
-    const minPrice = prices.length ? Math.min(...prices.map(p => p.price)) : 0;
-    const sortedPrices = [...prices].sort((a, b) => a.price - b.price);
-
-    const priceList = document.getElementById('priceComparisonList');
-    priceList.innerHTML = sortedPrices.map(p => {
-        const isCheapest = p.price === minPrice;
-        const diff = p.price - minPrice;
-        const color = p.marketColor || state.markets.find(m => m.id === p.marketId)?.color || '#666';
-
-        return `
-      <div class="price-row ${isCheapest ? 'cheapest' : ''}">
-        <div class="price-row-left">
-          <span class="price-market-dot" style="background: ${color}"></span>
-          <span class="price-market-name">${p.marketName || p.market_name || p.marketId || ''}</span>
-          <div class="price-row-badges">
-            ${prices.length > 1 && isCheapest ? '<span class="price-badge">En Ucuz</span>' : ''}
-            ${prices.length === 1 ? '<span class="price-badge">Lokal Ürün</span>' : ''}
-          </div>
-        </div>
-        <div class="price-row-right">
-          <span class="price-value">
-            ${formatPrice(p.price)} ₺
-            ${p.unitPrice ? `<span class="unit-price">(${formatPrice(p.unitPrice.price)} ${p.unitPrice.label})</span>` : ''}
-          </span>
-          ${!isCheapest && diff > 0 ? `<span class="price-diff">+${formatPrice(diff)} ₺</span>` : ''}
-        </div>
-      </div>
-    `;
-    }).join('');
-
-    // Chart
-    renderPriceChart(product);
-
-    // Best Time to Buy
-    loadBestTime(productId);
-
-    overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
+function renderSkeleton() {
+    document.getElementById('productGrid').innerHTML = Array(8).fill(0).map(() => `<div class="product-card" style="opacity: 0.4; height: 350px; background: #EEE;"></div>`).join('');
 }
 
-function closeModal() {
-    document.getElementById('modalOverlay').classList.remove('open');
-    document.body.style.overflow = '';
-    if (state.chart) { state.chart.destroy(); state.chart = null; }
-}
-
-// ============================================
-// BEST TIME TO BUY
-// ============================================
-async function loadBestTime(productId) {
-    // Find or create the best-time section in the modal
-    let section = document.getElementById('bestTimeSection');
-    if (!section) {
-        section = document.createElement('div');
-        section.id = 'bestTimeSection';
-        section.className = 'modal-best-time-section';
-        document.querySelector('.modal-right').appendChild(section);
-    }
-
-    section.innerHTML = `<div class="best-time-loading"><div class="spinner"></div> Analiz yükleniyor...</div>`;
-
-    try {
-        const data = await fetchAPI(`/products/${productId}/best-time`);
-
-        if (!data.hasData) {
-            section.innerHTML = '';
-            return;
-        }
-
-        const trendIcon = data.trend === 'rising' ? '📈' : data.trend === 'falling' ? '📉' : '➡️';
-        const trendLabel = data.trend === 'rising' ? 'Fiyat artıyor' : data.trend === 'falling' ? 'Fiyat düşüyor' : 'Fiyat stabil';
-        const trendColor = data.trend === 'rising' ? 'var(--danger)' : data.trend === 'falling' ? 'var(--success)' : 'var(--text-tertiary)';
-
-        const recommendation = data.isNearAllTimeMin
-            ? { icon: '✅', text: 'Şimdi Al!', sub: 'Fiyat tüm zamanlar düşüğüne yakın', color: 'var(--success)', bg: 'var(--success-bg)' }
-            : data.trend === 'falling'
-                ? { icon: '⏳', text: 'Bekle', sub: 'Fiyat düşmeye devam ediyor', color: 'var(--warning)', bg: 'var(--warning-bg)' }
-                : { icon: '🛒', text: 'Al', sub: `En ucuz: ${data.cheapestMarket?.marketName || '?'}`, color: 'var(--accent-primary)', bg: 'rgba(108,99,255,0.08)' };
-
-        const marketBars = (data.marketStats || []).map(m => {
-            const maxAvg = Math.max(...data.marketStats.map(ms => ms.avgPrice));
-            const pct = Math.round((m.avgPrice / maxAvg) * 100);
-            const isCheapest = m.marketId === data.marketStats[0]?.marketId;
-            return `
-            <div class="bt-market-row">
-                <span class="bt-market-dot" style="background:${m.marketColor}"></span>
-                <span class="bt-market-name">${m.marketName}</span>
-                <div class="bt-bar-wrap">
-                    <div class="bt-bar" style="width:${pct}%;background:${isCheapest ? 'var(--success)' : m.marketColor}55"></div>
-                </div>
-                <span class="bt-market-price">${formatPrice(m.avgPrice)} ₺</span>
-            </div>`;
-        }).join('');
-
-        section.innerHTML = `
-            <div class="best-time-header">
-                <h3 class="modal-section-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                    En İyi Alım Zamanı
-                </h3>
-                <div class="bt-rec-badge" style="background:${recommendation.bg};color:${recommendation.color}">
-                    <span class="bt-rec-icon">${recommendation.icon}</span>
-                    <div>
-                        <div class="bt-rec-title">${recommendation.text}</div>
-                        <div class="bt-rec-sub">${recommendation.sub}</div>
-                    </div>
-                </div>
-            </div>
-            <div class="bt-trend-row">
-                <span style="color:${trendColor}">${trendIcon} ${trendLabel}</span>
-                <span class="bt-trend-pct" style="color:${trendColor}">${data.trendPct > 0 ? '+' : ''}${data.trendPct}%</span>
-                <span class="bt-alltime">Tüm zamanlar en düşük: <strong>${formatPrice(data.allTimeMin)} ₺</strong></span>
-            </div>
-            <div class="bt-markets">
-                <div class="bt-markets-title">Market Ortalama Fiyat Karşılaştırması</div>
-                ${marketBars}
-            </div>
-        `;
-    } catch (e) {
-        section.innerHTML = '';
-    }
-}
-
-
-// ============================================
-// CHART
-// ============================================
-function renderPriceChart(product) {
-    if (state.chart) state.chart.destroy();
-
-    const ctx = document.getElementById('priceChart').getContext('2d');
-    const history = product.priceHistory || [];
-
-    if (history.length === 0) {
-        // No history — show message
-        state.chart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: ['Veri yok'], datasets: [{ data: [0] }] },
-            options: { plugins: { legend: { display: false } } }
-        });
-        return;
-    }
-
-    const labels = history.map(h => {
-        const date = new Date(h.date);
-        return date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
-    });
-    const data = history.map(h => h.price);
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, 'rgba(108, 99, 255, 0.25)');
-    gradient.addColorStop(1, 'rgba(108, 99, 255, 0.02)');
-
-    state.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Fiyat (₺)',
-                data,
-                borderColor: '#6C63FF',
-                backgroundColor: gradient,
-                fill: true,
-                tension: 0.4,
-                borderWidth: 2.5,
-                pointBackgroundColor: '#6C63FF',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#1a1a2e',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    padding: 12,
-                    cornerRadius: 10,
-                    displayColors: false,
-                    callbacks: { label: (ctx) => `${formatPrice(ctx.parsed.y)} ₺` }
-                }
-            },
-            scales: {
-                x: { grid: { display: false }, ticks: { font: { family: 'Inter', size: 11, weight: '500' }, color: '#718096' } },
-                y: { grid: { color: 'rgba(0,0,0,0.05)', drawBorder: false }, ticks: { font: { family: 'Inter', size: 11, weight: '500' }, color: '#718096', callback: v => `${v} ₺` } }
-            }
-        }
-    });
-}
-
-// ============================================
-// UTILS
-// ============================================
-function formatPrice(price) {
-    return price.toFixed(2).replace('.', ',');
-}
-
-function animateCounter(el, target) {
-    const duration = 1200;
-    const start = performance.now();
-    const initial = parseInt(el.textContent) || 0;
-    function step(now) {
-        const elapsed = now - start;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-        const value = Math.round(initial + (target - initial) * eased);
-        el.textContent = value.toLocaleString('tr-TR');
-        if (progress < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
+function formatPrice(price) { return (price || 0).toFixed(2).replace('.', ','); }
+async function fetchAPI(path) {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) throw new Error(res.status);
+    return res.json();
 }

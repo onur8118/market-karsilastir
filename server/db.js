@@ -76,6 +76,11 @@ function initTables(db) {
       barcode TEXT,
       image_url TEXT,
       source_url TEXT,
+      nutrition_energy TEXT,
+      nutrition_carbs TEXT,
+      nutrition_protein TEXT,
+      nutrition_fat TEXT,
+      ingredients TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       UNIQUE(name, brand)
@@ -239,7 +244,7 @@ export function getBaseMatchStr(normalized) {
 }
 
 // Helper: insert or update product and return product ID
-export function upsertProduct(db, { name, brand, category, barcode, imageUrl, sourceUrl }) {
+export function upsertProduct(db, { name, brand, category, barcode, imageUrl, sourceUrl, nutritionEnergy, nutritionCarbs, nutritionProtein, nutritionFat, ingredients }) {
   const normalized = normalizeName(name);
   const matchStr = getBaseMatchStr(normalized);
 
@@ -299,20 +304,30 @@ export function upsertProduct(db, { name, brand, category, barcode, imageUrl, so
         category = CASE WHEN category IS NULL OR ? = 0 THEN COALESCE(?, category) ELSE category END,
         barcode = CASE WHEN barcode IS NULL OR ? = 0 THEN COALESCE(barcode, ?) ELSE barcode END,
         image_url = CASE WHEN image_url IS NULL OR ? = 0 THEN COALESCE(?, image_url) ELSE image_url END,
+        nutrition_energy = COALESCE(nutrition_energy, ?),
+        nutrition_carbs = COALESCE(nutrition_carbs, ?),
+        nutrition_protein = COALESCE(nutrition_protein, ?),
+        nutrition_fat = COALESCE(nutrition_fat, ?),
+        ingredients = COALESCE(ingredients, ?),
         updated_at = datetime("now") 
       WHERE id = ?`,
       [
         isInvalidCategory ? 1 : 0, category || null,
         isInvalidBarcode ? 1 : 0, barcode || null,
         isInvalidImageUrl ? 1 : 0, imageUrl || null,
+        nutritionEnergy || null,
+        nutritionCarbs || null,
+        nutritionProtein || null,
+        nutritionFat || null,
+        ingredients || null,
         id
       ]
     );
     return id;
   }
 
-  db.run('INSERT INTO products (name, brand, category, barcode, image_url, source_url) VALUES (?, ?, ?, ?, ?, ?)',
-    [name, brand || '', category || null, barcode || null, imageUrl || null, sourceUrl || null]);
+  db.run('INSERT INTO products (name, brand, category, barcode, image_url, source_url, nutrition_energy, nutrition_carbs, nutrition_protein, nutrition_fat, ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [name, brand || '', category || null, barcode || null, imageUrl || null, sourceUrl || null, nutritionEnergy || null, nutritionCarbs || null, nutritionProtein || null, nutritionFat || null, ingredients || null]);
 
   const result = db.exec('SELECT last_insert_rowid()');
   return result[0].values[0][0];

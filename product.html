@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ürün Detayı — FiyatRadar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+
+<body class="detail-page-body">
+    <header class="detail-header">
+        <div class="container">
+            <a href="/" class="navbar-brand">
+                <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
+            </a>
+            <a href="/" class="back-btn-premium">
+                Alışverişe Dönmek İçin
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round" style="width: 20px; height: 20px;">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <main style="padding: 20px; padding-bottom: 120px;">
+        <div class="product-detail-grid" id="productDetail">
+            <!-- Left: Image Section -->
+            <div class="detail-image-box" id="detailImage">
+                <div style="height: 400px; background: #F8F9FA; border-radius: 12px; opacity: 0.5;"></div>
+            </div>
+
+            <!-- Right: Information Section -->
+            <div class="detail-info-card">
+                <div>
+                    <div class="badge-container">
+                        <div class="badge-pill" id="detailCategory">🏷️ Kategori</div>
+                        <div class="badge-pill" id="detailBrand">🏢 Marka</div>
+                    </div>
+                    <h1 class="detail-title" id="detailTitle" style="margin-top: 15px;">Ürün Yükleniyor...</h1>
+
+                    <div class="barcode-row" style="margin-top: 20px;">
+                        <span class="barcode-visual">📋</span>
+                        <div>
+                            <div
+                                style="font-size: 10px; font-weight: 800; color: var(--text-light); text-transform: uppercase;">
+                                Barkod Numarası</div>
+                            <div class="barcode-text" id="detailBarcode">...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="market-price-list" id="marketPrices">
+                    <!-- Prices injected here (will be rendered as market-row-premium via JS) -->
+                </div>
+
+                <!-- Nutrition Section (Expandable) -->
+                <div id="nutritionSection" style="display: none;">
+                    <button class="nutrition-toggle-btn" id="toggleNutrition">
+                        Besin Değerleri için Tıklayınız 🖱️
+                    </button>
+
+                    <div class="staircase-container" id="nutritionDrawer">
+                        <div class="staircase-row">
+                            <span class="staircase-label">⚡ Enerji (kcal)</span>
+                            <span class="staircase-value" id="valEnergy">-</span>
+                        </div>
+                        <div class="staircase-row">
+                            <span class="staircase-label">🍞 Karbonhidrat (g)</span>
+                            <span class="staircase-value" id="valCarbs">-</span>
+                        </div>
+                        <div class="staircase-row">
+                            <span class="staircase-label">🥩 Protein (g)</span>
+                            <span class="staircase-value" id="valProtein">-</span>
+                        </div>
+                        <div class="staircase-row">
+                            <span class="staircase-label">🧈 Yağ (g)</span>
+                            <span class="staircase-value" id="valFat">-</span>
+                        </div>
+
+                        <div class="ingredients-box">
+                            <div
+                                style="font-weight: 800; color: var(--secondary); margin-bottom: 8px; font-size: 11px; text-transform: uppercase;">
+                                📑 İçindekiler</div>
+                            <p id="detailIngredients" style="margin: 0; font-weight: 500;">...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Floating CTA -->
+    <div class="detail-floating-bar detail-animate">
+        <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; opacity: 0.7;">En İyi Market
+                Fiyatı</span>
+            <div class="price-focus" id="cheapestPrice">0,00 ₺</div>
+        </div>
+        <button class="checkout-btn" id="addToCartDetail"
+            style="width: auto; margin: 0; padding: 14px 40px; border-radius: 50px;">Listeye Ekle 🛒</button>
+    </div>
+
+    <script type="module" src="/src/product-detail.js"></script>
+</body>
+
+</html>
