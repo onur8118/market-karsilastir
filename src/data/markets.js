@@ -7,13 +7,6 @@ export const markets = [
     logo: 'https://upload.wikimedia.org/wikipedia/tr/thumb/8/86/A101_logo.svg/1200px-A101_logo.svg.png'
   },
   {
-    id: 'bim',
-    name: 'BİM',
-    color: '#E30613',
-    bgColor: '#FCE8EA',
-    logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/B%C4%B0M_logo.svg/1200px-B%C4%B0M_logo.svg.png'
-  },
-  {
     id: 'sok',
     name: 'ŞOK',
     color: '#FFD100',
@@ -44,9 +37,30 @@ export const markets = [
   {
     id: 'file',
     name: 'File',
-    color: '#8B1A1A',
-    bgColor: '#F5E8E8',
-    logo: ''
+    color: '#009b4c',
+    bgColor: '#e6f5ed',
+    logo: 'https://www.file.com.tr/assets/images/file-logo.png'
+  },
+  {
+    id: 'happycenter',
+    name: 'Happy Center',
+    color: '#009639',
+    bgColor: '#e6f4eb',
+    logo: 'https://www.happy.com.tr/image/catalog/logo.png'
+  },
+  {
+    id: 'bizim',
+    name: 'Bizim Toptan',
+    color: '#004a99',
+    bgColor: '#e6edf5',
+    logo: 'https://www.bizimtoptan.com.tr/Assets/Images/bizim-toptan-logo.svg'
+  },
+  {
+    id: 'mopas',
+    name: 'Mopaş',
+    color: '#E30613',
+    bgColor: '#FCE8EA',
+    logo: 'https://mopas.com.tr/assets/images/logo.png'
   }
 ];
 

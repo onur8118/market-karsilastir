@@ -175,3 +175,40 @@ async function autoScroll(page) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Phase 2: Barcode search for CarrefourSA
+export async function fetchPriceByBarcode(browser, barcode) {
+    if (!barcode) return null;
+    let page;
+    try {
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        const searchUrl = `https://www.carrefoursa.com/search/?text=${barcode}`;
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+        await sleep(2500);
+
+        const result = await page.evaluate(() => {
+            const card = document.querySelector('li.product-item') || document.querySelector('.product-card') || document.querySelector('.productCard');
+            if (!card) return null;
+            const priceEl = card.querySelector('.item-price, .price');
+            const priceText = priceEl?.textContent?.replace(/\s+/g, '') || '';
+            const inStock = !document.body.innerText.includes('Tükendi');
+            return { priceText, inStock };
+        });
+
+        if (!result || !result.priceText) return null;
+
+        const priceMatch = result.priceText.match(/(\d{1,5}(?:[.,]\d{1,2})?)/);
+        if (!priceMatch) return null;
+
+        const priceStr = priceMatch[1].replace(',', '.');
+        const val = parseFloat(priceStr);
+        return { price: isNaN(val) ? null : val, inStock: result.inStock };
+    } catch (err) {
+        console.warn(`[CarrefourSA] Barkod hatasi (${barcode}): ${err.message}`);
+        return null;
+    } finally {
+        if (page) await page.close();
+    }
+}

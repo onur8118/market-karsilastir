@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
+import { CartProvider } from "@/lib/CartContext";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-primary" });
-const outfit = Outfit({ subsets: ["latin"], variable: "--font-display" });
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "FiyatRadar — Market Fiyat Karşılaştırma",
-  description: "Türkiye'nin önde gelen marketlerindeki binlerce ürünün fiyatlarını anlık olarak karşılaştırın, tasarruf edin.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "FiyatRadar",
-  },
+  title: "FiyatRadar - Akıllı Market Karşılaştırma",
+  description: "Tüm marketlerin fiyatlarını anlık karşılaştırın, en ucuzunu bulun.",
 };
 
 export default function RootLayout({
@@ -22,9 +19,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className="scroll-smooth">
-      <body className={`${inter.variable} ${outfit.variable} antialiased`}>
-        {children}
+    <html lang="tr">
+      <body className={`${inter.variable} antialiased`}>
+        <CartProvider>
+          {children}
+        </CartProvider>
       </body>
     </html>
   );

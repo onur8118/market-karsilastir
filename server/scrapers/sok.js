@@ -187,3 +187,51 @@ export async function scrapeSok(db) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Phase 2: Barcode search for Şok
+export async function fetchPriceByBarcode(browser, barcode) {
+    if (!barcode) return null;
+    let page;
+    try {
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        const searchUrl = `https://www.sokmarket.com.tr/arama?q=${barcode}`;
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+        await sleep(2500);
+
+        const result = await page.evaluate(() => {
+            const productLinks = document.querySelectorAll('a[href*="-p-"]');
+            if (productLinks.length === 0) return null;
+
+            const firstProduct = productLinks[0];
+            const textContent = firstProduct.textContent.trim();
+            const pricePattern = /(\d{1,5}[,\.]\d{2})\s*₺/g;
+            const priceMatches = [...textContent.matchAll(pricePattern)];
+
+            if (priceMatches.length === 0) return null;
+
+            let price = null;
+            if (priceMatches.length >= 2) {
+                // If there's an old price and a new price, pick the lowest
+                const a = parseFloat(priceMatches[0][1].replace(',', '.'));
+                const b = parseFloat(priceMatches[1][1].replace(',', '.'));
+                price = Math.min(a, b);
+            } else {
+                price = parseFloat(priceMatches[0][1].replace(',', '.'));
+            }
+
+            const inStock = !textContent.includes('Tükendi');
+            return { price, inStock };
+        });
+
+        if (!result || !result.price) return null;
+
+        return { price: result.price, inStock: result.inStock };
+    } catch (err) {
+        console.warn(`[Şok] Barkod hatasi (${barcode}): ${err.message}`);
+        return null;
+    } finally {
+        if (page) await page.close();
+    }
+}

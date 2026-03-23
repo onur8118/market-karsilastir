@@ -146,7 +146,8 @@ async function loadProducts(reset = false) {
             page: state.page,
             limit: state.limit,
             q: state.searchQuery,
-            category: state.activeCategory
+            category: state.activeCategory === 'hepsi' ? '' : state.activeCategory,
+            sort: state.sortBy
         });
         if (state.activeMarket) query.append('market', state.activeMarket);
 
@@ -216,6 +217,7 @@ function setupEventListeners() {
     const searchInput = document.getElementById('searchInput');
     if (state.searchQuery) searchInput.value = state.searchQuery;
 
+    // Search
     let debounceTimer;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
@@ -226,8 +228,33 @@ function setupEventListeners() {
             if (state.searchQuery) url.searchParams.set('q', state.searchQuery);
             else url.searchParams.delete('q');
             window.history.replaceState({}, '', url);
-        }, 3000); // Debounce set to 3s for user preference or performance
+        }, 500);
     });
+
+    // Sidebar Category clicks
+    document.querySelectorAll('[data-category]').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const cat = item.getAttribute('data-category');
+
+            // Update UI
+            document.querySelectorAll('[data-category]').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+
+            // Update State
+            state.activeCategory = cat;
+            loadProducts(true);
+        });
+    });
+
+    // Sorting
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            state.sortBy = e.target.value;
+            loadProducts(true);
+        });
+    }
 }
 
 function setupInfiniteScroll() {
@@ -243,14 +270,39 @@ function renderMarketDropdown() {
     if (!container) return;
 
     container.innerHTML = `
-        <a href="/?market=" class="dropdown-item">Tüm Marketler</a>
+        <div class="sidebar-item ${!state.activeMarket ? 'active' : ''}" data-market="">
+            <span class="market-dot" style="background: #ccc"></span>
+            Tüm Marketler
+        </div>
         ${state.markets.map(m => `
-            <a href="/?market=${m.id}" target="_blank" class="dropdown-item">
-                <span style="width: 8px; height: 8px; border-radius: 50%; background: ${m.color}; display: inline-block; margin-right: 8px;"></span>
+            <div class="sidebar-item ${state.activeMarket == m.id ? 'active' : ''}" data-market="${m.id}">
+                <span class="market-dot" style="background: ${m.color}"></span>
                 ${m.name}
-            </a>
+            </div>
         `).join('')}
     `;
+
+    // Add listeners to new elements
+    container.querySelectorAll('[data-market]').forEach(item => {
+        item.addEventListener('click', () => {
+            const marketId = item.getAttribute('data-market');
+            state.activeMarket = marketId || null;
+
+            // Update UI
+            container.querySelectorAll('[data-market]').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+
+            loadProducts(true);
+        });
+    });
+
+    // Get product count and update stat
+    fetchAPI('/stats').then(stats => {
+        const el = document.getElementById('statProductCount');
+        if (el && stats.totalProducts) {
+            el.textContent = stats.totalProducts.toLocaleString() + '+';
+        }
+    });
 }
 
 function renderSkeleton() {

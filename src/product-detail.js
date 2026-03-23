@@ -61,10 +61,20 @@ function renderDetail() {
     // Prices
     const priceList = document.getElementById('marketPrices');
     if (p.prices && p.prices.length > 0) {
-        priceList.innerHTML = p.prices.map(price => `
-            <div class="market-row-premium">
+        const minPrice = Math.min(...p.prices.map(pr => pr.price));
+        const maxPrice = Math.max(...p.prices.map(pr => pr.price));
+        const savingsPercent = maxPrice > minPrice ? (((maxPrice - minPrice) / maxPrice) * 100).toFixed(0) : 0;
+
+        priceList.innerHTML = p.prices.map(price => {
+            const isCheapest = price.price === minPrice;
+            return `
+            <div class="market-row-premium ${isCheapest ? 'is-cheapest' : ''}">
+                ${isCheapest ? '<div class="lowest-price-badge">🏆 EN UCUZ</div>' : ''}
                 <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="width: 14px; height: 14px; border-radius: 50%; background: ${price.marketColor}"></div>
+                    <div class="market-logo-container">
+                        <img src="${getMarketLogo(price.marketId)}" alt="${price.marketName}" 
+                             onerror="this.src='https://ui-avatars.com/api/?name=${price.marketName}&background=${price.marketColor.replace('#', '')}&color=fff'">
+                    </div>
                     <div>
                         <div style="font-weight: 800; color: var(--secondary); font-size: 18px;">${price.marketName}</div>
                         <div style="font-size: 11px; color: var(--text-light); text-transform: uppercase; font-weight: 700;">
@@ -77,13 +87,38 @@ function renderDetail() {
                     ${price.originalPrice ? `<div style="text-decoration: line-through; color: var(--text-muted); font-size: 14px; opacity: 0.6;">${formatPrice(price.originalPrice)} ₺</div>` : ''}
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
 
-        const minPrice = Math.min(...p.prices.map(pr => pr.price));
+        if (savingsPercent > 0) {
+            priceList.innerHTML += `
+                <div class="savings-stats-box">
+                    <div class="savings-percentage">%${savingsPercent}</div>
+                    <div style="font-weight: 600; font-size: 15px; line-height: 1.4;">
+                        En ucuz marketi seçerek <span style="color: var(--primary)">%${savingsPercent}</span> tasarruf edebilirsiniz!
+                    </div>
+                </div>
+            `;
+        }
+
         document.getElementById('cheapestPrice').textContent = `${formatPrice(minPrice)} ₺`;
     } else {
         priceList.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px; font-weight: 500;">Fiyat bilgisi şu an ulaşılamıyor.</p>';
     }
+
+    // Description Toggle Logic
+    const descContainer = document.getElementById('detailDescription');
+    const descDrawer = document.getElementById('descriptionDrawer');
+    const descToggleBtn = document.getElementById('toggleDescription');
+
+    descContainer.textContent = p.description || 'Bu ürün için açıklama bilgisi henüz eklenmemiştir.';
+
+    descToggleBtn.onclick = () => {
+        const isOpen = descDrawer.style.display === 'block' || descDrawer.style.display === 'flex';
+        descDrawer.style.display = isOpen ? 'none' : 'block';
+        descToggleBtn.innerHTML = isOpen ? 'Ürün Açıklaması için Tıklayınız 🖱️' : 'Açıklamayı Gizle ⬆️';
+        descToggleBtn.style.background = isOpen ? '#FDFDFD' : 'rgba(0, 136, 204, 0.1)';
+    };
 
     // Nutrition visibility & Toggle
     const nutritionSection = document.getElementById('nutritionSection');
@@ -121,6 +156,21 @@ function getProductImage(product) {
     if (product.image_url) return product.image_url;
     if (product.barcode) return `https://marketkarsilastir.com/urunler/${product.barcode}.jpg`;
     return '/placeholder.png';
+}
+
+function getMarketLogo(marketId) {
+    const marketLogos = {
+        'a101': 'https://upload.wikimedia.org/wikipedia/tr/b/b5/A101_logo.png',
+        'sok': 'https://upload.wikimedia.org/wikipedia/tr/d/d3/%C5%9Eok_Market_logosu.png',
+        'migros': 'https://upload.wikimedia.org/wikipedia/tr/6/6f/Migros_logo.png',
+        'carrefoursa': 'https://upload.wikimedia.org/wikipedia/tr/3/3d/CarrefourSA_logo.png',
+        'bizim': 'https://www.bizimtoptan.com.tr/Assets/Images/bizim-toptan-logo.svg',
+        'metro': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Metro_Logo.svg/1200px-Metro_Logo.svg.png',
+        'file': 'https://www.file.com.tr/assets/images/file-logo.png',
+        'happycenter': 'https://www.happy.com.tr/image/catalog/logo.png',
+        'mopas': 'https://mopas.com.tr/assets/images/logo.png'
+    };
+    return marketLogos[marketId] || `https://ui-avatars.com/api/?name=${marketId}`;
 }
 
 function addToCart(p) {

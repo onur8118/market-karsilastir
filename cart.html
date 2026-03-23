@@ -17,9 +17,17 @@
     <!-- Simple Header -->
     <header class="detail-header" style="background: white; border-bottom: 1px solid rgba(0,0,0,0.05);">
         <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
-            <a href="/" class="navbar-brand" style="margin: 0;">
-                <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
-            </a>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <a href="/" class="navbar-brand" style="margin: 0;">
+                    <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
+                </a>
+                <a href="/" class="home-link-modern"
+                    style="background: var(--bg-main); color: var(--secondary); border: 1px solid rgba(0,0,0,0.05);"
+                    title="Ana Menü">
+                    <span class="home-icon">🏠</span>
+                    <span class="home-text">Ana Menü</span>
+                </a>
+            </div>
             <div style="font-weight: 800; font-size: 18px; color: var(--secondary);">Alışveriş Listem 📋</div>
             <a href="/" class="back-btn-premium" style="padding: 8px 20px;">← Keşfetmeye Devam Et</a>
         </div>
@@ -31,7 +39,7 @@
             <div class="cart-list-card">
                 <div class="cart-list-header">
                     <h2 style="font-weight: 800; font-size: 22px; color: var(--secondary);">Ürün Listesi</h2>
-                    <button class="cart-clear-btn" onclick="clearCart()">🗑️ Listeyi Temizle</button>
+                    <button class="cart-clear-btn">🗑️ Listeyi Temizle</button>
                 </div>
 
                 <div class="cart-table-head">

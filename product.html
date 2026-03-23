@@ -35,6 +35,15 @@
             <!-- Left: Image Section -->
             <div class="detail-image-box" id="detailImage">
                 <div style="height: 400px; background: #F8F9FA; border-radius: 12px; opacity: 0.5;"></div>
+                <div class="barcode-row" style="margin-top: 20px; width: 100%; justify-content: center;">
+                    <span class="barcode-visual">📋</span>
+                    <div>
+                        <div
+                            style="font-size: 10px; font-weight: 800; color: var(--text-light); text-transform: uppercase;">
+                            Barkod Numarası</div>
+                        <div class="barcode-text" id="detailBarcode">...</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Right: Information Section -->
@@ -45,56 +54,56 @@
                         <div class="badge-pill" id="detailBrand">🏢 Marka</div>
                     </div>
                     <h1 class="detail-title" id="detailTitle" style="margin-top: 15px;">Ürün Yükleniyor...</h1>
-
-                    <div class="barcode-row" style="margin-top: 20px;">
-                        <span class="barcode-visual">📋</span>
-                        <div>
-                            <div
-                                style="font-size: 10px; font-weight: 800; color: var(--text-light); text-transform: uppercase;">
-                                Barkod Numarası</div>
-                            <div class="barcode-text" id="detailBarcode">...</div>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="market-price-list" id="marketPrices">
                     <!-- Prices injected here (will be rendered as market-row-premium via JS) -->
                 </div>
 
-                <!-- Nutrition Section (Expandable) -->
-                <div id="nutritionSection" style="display: none;">
-                    <button class="nutrition-toggle-btn" id="toggleNutrition">
-                        Besin Değerleri için Tıklayınız 🖱️
+                <!-- Toggles & Drawers -->
+                <div style="display: flex; gap: 15px; flex-direction: column;">
+                    <button class="nutrition-toggle-btn" id="toggleDescription" style="border-color: var(--secondary);">
+                        Ürün Açıklaması için Tıklayınız 🖱️
                     </button>
+                    <div class="staircase-container" id="descriptionDrawer" style="display: none; height: auto;">
+                        <div class="ingredients-box" id="detailDescription" style="margin-top: 0; width: 100%;">
+                            Bu ürün için açıklama bilgisi henüz eklenmemiştir.
+                        </div>
+                    </div>
 
-                    <div class="staircase-container" id="nutritionDrawer">
-                        <div class="staircase-row">
-                            <span class="staircase-label">⚡ Enerji (kcal)</span>
-                            <span class="staircase-value" id="valEnergy">-</span>
-                        </div>
-                        <div class="staircase-row">
-                            <span class="staircase-label">🍞 Karbonhidrat (g)</span>
-                            <span class="staircase-value" id="valCarbs">-</span>
-                        </div>
-                        <div class="staircase-row">
-                            <span class="staircase-label">🥩 Protein (g)</span>
-                            <span class="staircase-value" id="valProtein">-</span>
-                        </div>
-                        <div class="staircase-row">
-                            <span class="staircase-label">🧈 Yağ (g)</span>
-                            <span class="staircase-value" id="valFat">-</span>
-                        </div>
+                    <div id="nutritionSection" style="display: none;">
+                        <button class="nutrition-toggle-btn" id="toggleNutrition">
+                            Besin Değerleri için Tıklayınız 🖱️
+                        </button>
 
-                        <div class="ingredients-box">
-                            <div
-                                style="font-weight: 800; color: var(--secondary); margin-bottom: 8px; font-size: 11px; text-transform: uppercase;">
-                                📑 İçindekiler</div>
-                            <p id="detailIngredients" style="margin: 0; font-weight: 500;">...</p>
+                        <div class="staircase-container" id="nutritionDrawer">
+                            <div class="staircase-row">
+                                <span class="staircase-label">⚡ Enerji (kcal)</span>
+                                <span class="staircase-value" id="valEnergy">-</span>
+                            </div>
+                            <div class="staircase-row">
+                                <span class="staircase-label">🍞 Karbonhidrat (g)</span>
+                                <span class="staircase-value" id="valCarbs">-</span>
+                            </div>
+                            <div class="staircase-row">
+                                <span class="staircase-label">🥩 Protein (g)</span>
+                                <span class="staircase-value" id="valProtein">-</span>
+                            </div>
+                            <div class="staircase-row">
+                                <span class="staircase-label">🧈 Yağ (g)</span>
+                                <span class="staircase-value" id="valFat">-</span>
+                            </div>
+
+                            <div class="ingredients-box">
+                                <div
+                                    style="font-weight: 800; color: var(--secondary); margin-bottom: 8px; font-size: 11px; text-transform: uppercase;">
+                                    📑 İçindekiler</div>
+                                <p id="detailIngredients" style="margin: 0; font-weight: 500;">...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
     </main>
 
     <!-- Bottom Floating CTA -->

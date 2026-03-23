@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Search, Moon, Sun, X } from "lucide-react";
+import { Search, Moon, Sun, X, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchSuggestions } from "@/lib/api";
+import { useCart } from "@/lib/CartContext";
+import Link from "next/link";
 
 interface TopbarProps {
     onSearch: (q: string) => void;
@@ -14,6 +16,7 @@ export default function Topbar({ onSearch }: TopbarProps) {
     const [suggestions, setSuggestions] = useState<any[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
+    const { cart } = useCart();
     const searchRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -184,6 +187,48 @@ export default function Topbar({ onSearch }: TopbarProps) {
                 >
                     {darkMode ? <Sun size={16} /> : <Moon size={16} />}
                 </button>
+
+                <Link href="/cart" style={{ textDecoration: "none" }}>
+                    <button
+                        style={{
+                            background: "var(--secondary)",
+                            border: "none",
+                            borderRadius: "50%",
+                            width: "36px",
+                            height: "36px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            color: "#fff",
+                            position: "relative",
+                            transition: "all 0.2s"
+                        }}
+                        title="Sepetim"
+                    >
+                        <ShoppingCart size={16} />
+                        {cart.length > 0 && (
+                            <span style={{
+                                position: "absolute",
+                                top: "-4px",
+                                right: "-4px",
+                                background: "#db2777",
+                                color: "#fff",
+                                fontSize: "10px",
+                                fontWeight: "bold",
+                                borderRadius: "50%",
+                                width: "18px",
+                                height: "18px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "2px solid var(--bg-primary)"
+                            }}>
+                                {cart.length}
+                            </span>
+                        )}
+                    </button>
+                </Link>
             </div>
         </header>
     );

@@ -1,12 +1,14 @@
 
 import * as cheerio from 'cheerio';
 import { upsertProduct, insertPrice, saveDb, getDb } from '../db.js';
+import fs from 'fs';
+import path from 'path';
 
 const CATEGORIES = [
     'atistirmalik', 'bebek-anne', 'deterjan-temizlik', 'dondurma', 'elektronik',
     'et-tavuk-balik', 'ev-yasam', 'kitap-kirtasiye-oyuncak', 'kisisel-bakim-kozmetik',
     'meyve-sebze', 'meze-hazir-yemek-donuk', 'pet-shop', 'sut-kahvaltilik',
-    'temel-gida', 'unlu-mamul-pasta', 'cicek-bahce'
+    'temel-gida', 'unlu-mamul-pasta', 'cicek-bahce', 'icecek'
 ];
 
 const BASE_URL = 'https://marketkarsilastir.com';
@@ -27,7 +29,8 @@ const CATEGORY_MAP = {
     'sut-kahvaltilik': 'sut-urunleri',
     'temel-gida': 'temel-gida',
     'unlu-mamul-pasta': 'temel-gida',
-    'cicek-bahce': 'temel-gida'
+    'cicek-bahce': 'temel-gida',
+    'icecek': 'icecek'
 };
 
 const MARKET_ID_MAP = {
@@ -41,7 +44,9 @@ const MARKET_ID_MAP = {
     'Bizim': 'bizim',
     'File': 'file',
     'Metro': 'metro',
-    'Tarım Kredi': 'tarimkredi'
+    'Tarım Kredi': 'tarimkredi',
+    'Mopaş': 'mopas',
+    'Bizim Market': 'bizim'
 };
 
 async function sleep(ms) {
@@ -81,6 +86,55 @@ async function scrapeProductDetails(db, productUrl, productData, stats) {
         if (!productData.imageUrl) {
             let img = $('img').first().attr('src');
             productData.imageUrl = img && (img.startsWith('http') ? img : `${BASE_URL}${img}`);
+        }
+
+        // Try to find barcode if not in URL
+        if (!productData.barcode) {
+            const barcodeText = $('body').text().match(/Barkod Numarası:\s*(\d{8,14})/);
+            if (barcodeText) {
+                productData.barcode = barcodeText[1];
+            }
+        }
+
+        // Try to find description
+        let description = '';
+        const descHeader = $('div, h2, h3, h4, h5').filter((_, el) => {
+            const text = $(el).text().trim().toLowerCase();
+            return text.includes('ürün açiklamosi') || text.includes('ürün açıklaması');
+        });
+
+        if (descHeader.length > 0) {
+            description = descHeader.first().next('p').text().trim() ||
+                descHeader.first().parent().find('p').first().text().trim() ||
+                descHeader.first().closest('.card').find('.card-body p').text().trim();
+        }
+
+        // Expanded Fallback: The site often dumps properties as a single unformatted text node
+        if (!description) {
+            const ps = $('p, div').filter((_, el) => {
+                const t = $(el).text().trim();
+                return t.includes('İçindekiler:') || t.includes('İçindekiler');
+            });
+            if (ps.length > 0) {
+                let best = ps.first().text().trim();
+                ps.each((_, el) => {
+                    const text = $(el).text().trim();
+                    // Find the most specific node (shortest text > 20 chars)
+                    if (text.length < best.length && text.length > 20) best = text;
+                });
+
+                // Format the blob by adding newlines before known keys
+                description = best
+                    .replace(/\s+/g, ' ')
+                    .replace(/(İçindekiler:|Saklama Koşulları:|Menşei:|Net Miktar:|Üretici:|Alerjen Uyarısı:|Gıda İşletmecisi)/g, '\n- $1 ')
+                    .replace(/([a-zğüşöçı])(İçindekiler|Saklama Koşulları|Menşei|Net Miktar|Üretici|Alerjen Uyarısı)/g, '$1\n- $2')
+                    .trim();
+            }
+        }
+
+        if (description && description.length < 1500) {
+            console.log(`      📝 Açıklama bulundu (${description.substring(0, 40).replace(/\\n/g, ' ')}...)`);
+            productData.description = description;
         }
 
         const productId = upsertProduct(db, productData);
@@ -158,12 +212,29 @@ export async function scrapeMarketKarsilastir() {
     const db = await getDb();
     const stats = { productsFound: 0, pricesUpdated: 0 };
 
-    for (const catSlug of CATEGORIES) {
+    // Progress tracking
+    const progressFile = path.join(process.cwd(), 'server', 'scrapers', 'progress.json');
+    let progress = { categoryIndex: 0, page: 1 };
+    if (fs.existsSync(progressFile)) {
+        try {
+            progress = JSON.parse(fs.readFileSync(progressFile, 'utf8'));
+            console.log(`\n📌 Önceki durumdan devam ediliyor: Kategori İndeksi ${progress.categoryIndex}, Sayfa ${progress.page}`);
+        } catch (e) {
+            console.warn('⚠️ progress.json okunamadı, baştan başlanıyor.');
+        }
+    }
+
+    for (let c = progress.categoryIndex; c < CATEGORIES.length; c++) {
+        const catSlug = CATEGORIES[c];
         console.log(`\n📂 Kategori: ${catSlug}`);
         const category = CATEGORY_MAP[catSlug] || 'temel-gida';
 
-        let page = 1;
-        while (page <= 500) { // Crawl up to 500 pages per category to avoid skipping any products
+        let page = (c === progress.categoryIndex) ? progress.page : 1;
+
+        while (page <= 500) { // Crawl up to 500 pages per category
+            // Save progress
+            fs.writeFileSync(progressFile, JSON.stringify({ categoryIndex: c, page }), 'utf8');
+
             const url = `${BASE_URL}/kategori/${catSlug}?page=${page}`;
             console.log(`  📄 Sayfa ${page}: ${url}`);
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, TrendingUp, Clock, CheckCircle2, ShoppingCart, ArrowRight } from "lucide-react";
+import { X, TrendingUp, Clock, CheckCircle2, ShoppingCart, ArrowRight, Plus } from "lucide-react";
+import { useCart } from "@/lib/CartContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Chart as ChartJS,
@@ -40,6 +41,7 @@ export default function ProductModal({ productId, isOpen, onClose }: ProductModa
     const [data, setData] = useState<any>(null);
     const [bestTime, setBestTime] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const { addToCart } = useCart();
 
     useEffect(() => {
         if (isOpen && productId) {
@@ -130,8 +132,26 @@ export default function ProductModal({ productId, isOpen, onClose }: ProductModa
                                                         <span className="w-3 h-3 rounded-full shadow-sm" style={{ background: p.marketColor }}></span>
                                                         <span className="font-bold text-text-secondary">{p.marketName}</span>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className="text-xl font-black text-text-primary">{formatPrice(p.price)} <small className="text-xs font-bold">₺</small></div>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-right">
+                                                            <div className="text-xl font-black text-text-primary">{formatPrice(p.price)} <small className="text-xs font-bold">₺</small></div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => addToCart({
+                                                                id: data.id,
+                                                                name: data.name,
+                                                                brand: data.brand,
+                                                                price: p.price,
+                                                                marketId: p.marketId,
+                                                                marketName: p.marketName,
+                                                                marketColor: p.marketColor,
+                                                                image: data.image_url
+                                                            })}
+                                                            className="p-2 rounded-xl bg-bg-tertiary hover:bg-accent-primary hover:text-white transition-colors"
+                                                            title="Sepete Ekle"
+                                                        >
+                                                            <Plus size={18} />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}

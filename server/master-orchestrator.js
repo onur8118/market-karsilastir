@@ -52,6 +52,9 @@ async function main() {
         // Stage 1: Market Scraping
         runStage('Market Scrapers', 'node run-all-markets.js');
 
+        // Stage 1.5: Live Price Updater (Phase 2 Barcode Lookups)
+        runStage('Live Price Updater', 'node update_prices_by_barcode.js');
+
         // Stage 2: Category Cleanup
         runStage('Category Cleanup', 'node cleanup_categories.js');
 

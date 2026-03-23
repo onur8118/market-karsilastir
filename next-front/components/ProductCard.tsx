@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TrendingDown } from "lucide-react";
+import { TrendingDown, Plus } from "lucide-react";
+import { useCart } from "@/lib/CartContext";
 
 interface Product {
     id: number;
@@ -21,6 +22,7 @@ interface Product {
 }
 
 export default function ProductCard({ product, onClick }: { product: Product, onClick: () => void }) {
+    const { addToCart } = useCart();
     const sortedPrices = [...(product.prices || [])].sort((a, b) => a.price - b.price);
     const minPrice = sortedPrices.length > 0 ? sortedPrices[0].price : 0;
 
@@ -78,6 +80,31 @@ export default function ProductCard({ product, onClick }: { product: Product, on
                             />
                         ))}
                     </div>
+                </div>
+
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (sortedPrices.length > 0) {
+                                const p = sortedPrices[0];
+                                addToCart({
+                                    id: product.id,
+                                    name: product.name,
+                                    brand: product.brand,
+                                    price: p.price,
+                                    marketId: p.marketId,
+                                    marketName: p.marketName,
+                                    marketColor: p.marketColor,
+                                    image: product.image_url
+                                });
+                            }
+                        }}
+                        className="bg-accent-primary text-white p-2 rounded-xl shadow-lg hover:scale-110 active:scale-95 transition-all"
+                        title="Sepete Ekle"
+                    >
+                        <Plus size={18} />
+                    </button>
                 </div>
             </div>
         </motion.div>

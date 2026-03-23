@@ -295,3 +295,40 @@ async function deepAutoScroll(page) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Phase 2: Barcode search for A101
+export async function fetchPriceByBarcode(browser, barcode) {
+    if (!barcode) return null;
+    let page;
+    try {
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        const searchUrl = `https://www.a101.com.tr/kapida/arama/?search_text=${barcode}`;
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+        await sleep(2500);
+
+        const result = await page.evaluate(() => {
+            const card = document.querySelector('div.cursor-pointer, div.rounded-2xl');
+            if (!card) return null;
+            const cardText = card.textContent || '';
+            const priceMatches = cardText.match(/₺\s*([\d.,]+)/g);
+            if (!priceMatches || priceMatches.length === 0) return null;
+
+            const prices = priceMatches.map(m => {
+                const cleaned = m.replace('₺', '').trim().replace(',', '.');
+                return parseFloat(cleaned);
+            }).filter(v => !isNaN(v) && v > 0);
+
+            if (prices.length === 0) return null;
+            return { price: Math.min(...prices), inStock: !cardText.includes('Tükendi') };
+        });
+
+        return result;
+    } catch (err) {
+        console.warn(`[A101] Barkod hatasi (${barcode}): ${err.message}`);
+        return null;
+    } finally {
+        if (page) await page.close();
+    }
+}

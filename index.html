@@ -14,98 +14,98 @@
 </head>
 
 <body>
-  <!-- Header with Cart -->
+  <!-- Modern Header -->
   <header class="header-wrapper">
-    <div class="container">
-      <!-- Top Right Cart Integration -->
-      <a href="/cart.html" target="_blank" class="cart-nav-link" id="cartNavLink">
-        <span>🛒 Sepetim</span>
-        <span class="cart-badge" id="cartBadge">0</span>
-      </a>
+    <div class="container-fluid header-container">
+      <div class="header-left">
+        <a href="/" class="navbar-brand">
+          <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
+        </a>
+        <a href="/" class="home-link-modern" title="Ana Menü">
+          <span class="home-icon">🏠</span>
+          <span class="home-text">Ana Menü</span>
+        </a>
+      </div>
 
-      <a href="/" class="navbar-brand">
-        <span class="brand-text">FIYAT<span class="brand-accent">RADAR</span></span>
-      </a>
-
-      <p class="hero-tagline">En geniş market ağıyla her üründe en ucuzunu anında bul, bütçeni koru.</p>
-
-      <div class="header-stats">
-        <div class="stat-item">
-          <span class="stat-value">7.000+</span>
-          <span class="stat-label">Ürün</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">5+</span>
-          <span class="stat-label">Market</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-value">Hergün</span>
-          <span class="stat-label">Güncel</span>
+      <div class="header-center">
+        <div class="search-container">
+          <svg class="search-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" class="main-search-input" placeholder="Ürün veya marka ara...">
         </div>
       </div>
 
-      <!-- Enlarged Dropdown Filters with Emojis -->
-      <div class="filters-section">
-        <!-- Marketler Dropdown -->
-        <div class="dropdown" id="marketDropdown">
-          <button class="dropdown-toggle" onclick="toggleDropdown('marketDropdown')">
-            🏪 Marketler <span>▼</span>
-          </button>
-          <div class="dropdown-menu" id="marketFilters">
-            <!-- Markets injected here -->
+      <div class="header-right">
+        <div class="header-stats-mini">
+          <div class="mini-stat">
+            <span id="statProductCount" class="stat-val">9.000+</span>
+            <span class="stat-lbl">Ürün</span>
           </div>
         </div>
-
-        <!-- Kategoriler Dropdown -->
-        <div class="dropdown" id="categoryDropdown">
-          <button class="dropdown-toggle" onclick="toggleDropdown('categoryDropdown')">
-            📂 Kategoriler <span>▼</span>
-          </button>
-          <div class="dropdown-menu" id="categoryFilters">
-            <a href="/?category=atistirmalik" class="dropdown-item">🍪 Atıştırmalık</a>
-            <a href="/?category=sut-urunleri" class="dropdown-item">🧀 Süt Ürünleri</a>
-            <a href="/?category=temel-gida" class="dropdown-item">🌾 Temel Gıda</a>
-            <a href="/?category=icecek" class="dropdown-item">🥤 İçecekler</a>
-            <a href="/?category=temizlik" class="dropdown-item">🧹 Temizlik</a>
-            <a href="/?category=kisisel-bakim" class="dropdown-item">🧴 Kişisel Bakım</a>
-            <a href="/?category=meyve-sebze" class="dropdown-item">🍎 Meyve & Sebze</a>
-            <a href="/?category=et-tavuk" class="dropdown-item">🥩 Et & Tavuk</a>
-            <a href="/?category=dondurulmus" class="dropdown-item">🧊 Dondurulmuş</a>
-            <a href="/?category=bebek" class="dropdown-item">👶 Bebek</a>
-          </div>
-        </div>
+        <a href="/cart.html" target="_blank" class="cart-btn-modern" id="cartNavLink">
+          <span class="cart-icon">🛒</span>
+          <span class="cart-badge" id="cartBadge">0</span>
+        </a>
       </div>
-
-      <div id="resultsCount" style="font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 15px; font-weight: 600;">
-        ...</div>
     </div>
   </header>
 
-  <!-- Search Area -->
-  <section class="search-section">
-    <div class="container">
-      <div class="search-container">
-        <svg class="search-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-        <input type="text" id="searchInput" class="main-search-input" placeholder="Ürün veya kategori ara...">
+  <div class="app-layout">
+    <!-- Sticky Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">🏪 Marketler</h3>
+        <div id="marketFilters" class="sidebar-menu">
+          <!-- Markets injected here -->
+        </div>
       </div>
-    </div>
-  </section>
 
-  <!-- Product Grid -->
-  <main class="container">
-    <div id="productGrid" class="products-grid">
-      <!-- Products injected here -->
-    </div>
+      <div class="sidebar-section">
+        <h3 class="sidebar-title">📂 Kategoriler</h3>
+        <div id="categoryFilters" class="sidebar-menu">
+          <a href="#" data-category="hepsi" class="sidebar-item active">🏠 Tümü</a>
+          <a href="#" data-category="atistirmalik" class="sidebar-item">🍪 Atıştırmalık</a>
+          <a href="#" data-category="sut-urunleri" class="sidebar-item">🧀 Süt Ürünleri</a>
+          <a href="#" data-category="temel-gida" class="sidebar-item">🌾 Temel Gıda</a>
+          <a href="#" data-category="icecek" class="sidebar-item">🥤 İçecekler</a>
+          <a href="#" data-category="temizlik" class="sidebar-item">🧹 Temizlik</a>
+          <a href="#" data-category="kisisel-bakim" class="sidebar-item">🧴 Kişisel Bakım</a>
+          <a href="#" data-category="meyve-sebze" class="sidebar-item">🍎 Meyve & Sebze</a>
+          <a href="#" data-category="et-tavuk" class="sidebar-item">🥩 Et & Tavuk</a>
+          <a href="#" data-category="dondurulmus" class="sidebar-item">🧊 Dondurulmuş</a>
+          <a href="#" data-category="bebek" class="sidebar-item">👶 Bebek</a>
+        </div>
+      </div>
+    </aside>
 
-    <div id="loading" style="text-align: center; padding: 60px; display: none;">
-      <div style="font-weight: 700; color: var(--secondary); letter-spacing: 1px;">YÜKLENİYOR...</div>
-    </div>
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-header">
+        <div id="resultsCount" class="results-info">... ürün listeleniyor</div>
+        <div class="sort-options">
+          <select id="sortSelect" class="modern-select">
+            <option value="default">Sıralama: Varsayılan</option>
+            <option value="price-asc">En Düşük Fiyat</option>
+            <option value="price-desc">En Yüksek Fiyat</option>
+            <option value="discount">En Yüksek İndirim</option>
+          </select>
+        </div>
+      </div>
 
-    <div id="scrollEnd" style="height: 100px;"></div>
-  </main>
+      <div id="productGrid" class="products-grid">
+        <!-- Products injected here -->
+      </div>
+
+      <div id="loading" class="loading-spinner">
+        <div class="spinner"></div>
+        <span>Veriler yükleniyor...</span>
+      </div>
+
+      <div id="scrollEnd" style="height: 20px;"></div>
+    </main>
+  </div>
 
   <!-- Product Detail Modal -->
   <div id="productModal" class="modal-overlay">

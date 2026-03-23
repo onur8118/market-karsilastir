@@ -141,3 +141,37 @@ function extractBrand(name) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Phase 2: Barcode search for Happy Center
+export async function fetchPriceByBarcode(browser, barcode) {
+    if (!barcode) return null;
+    let page;
+    try {
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        const searchUrl = `https://www.happycenter.com.tr/arama?q=${barcode}`;
+        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+        await sleep(2500);
+
+        const result = await page.evaluate(() => {
+            const card = document.querySelector('.urun');
+            if (!card) return null;
+            const priceEl = card.querySelector('.price');
+            const priceText = priceEl?.textContent?.trim() || '';
+            const inStock = true; // Happy Center usually removes out of stock or puts "tükendi"
+            return { priceText, inStock };
+        });
+
+        if (!result || !result.priceText) return null;
+
+        const cleaned = result.priceText.replace(/[^0-9,\.]/g, '').replace(',', '.');
+        const val = parseFloat(cleaned);
+        return { price: isNaN(val) ? null : val, inStock: result.inStock };
+    } catch (err) {
+        console.warn(`[HappyCenter] Barkod hatasi (${barcode}): ${err.message}`);
+        return null;
+    } finally {
+        if (page) await page.close();
+    }
+}

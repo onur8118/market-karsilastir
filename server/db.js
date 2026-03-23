@@ -81,6 +81,7 @@ function initTables(db) {
       nutrition_protein TEXT,
       nutrition_fat TEXT,
       ingredients TEXT,
+      description TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       UNIQUE(name, brand)
@@ -141,7 +142,6 @@ function initTables(db) {
   // Seed markets
   const markets = [
     ['a101', 'A101', '#0057A8', '#E8F1FA', 'https://www.a101.com.tr'],
-    ['bim', 'BİM', '#E30613', '#FCE8EA', 'https://www.bim.com.tr'],
     ['sok', 'ŞOK', '#FFD100', '#FFF9E0', 'https://www.sokmarket.com.tr'],
     ['migros', 'Migros', '#F26F21', '#FEF0E6', 'https://www.migros.com.tr'],
     ['carrefoursa', 'CarrefourSA', '#004E9A', '#E6EEF6', 'https://www.carrefoursa.com'],
@@ -151,6 +151,7 @@ function initTables(db) {
     ['file', 'File Market', '#009b4c', '#e6f5ed', 'https://www.file.com.tr'],
     ['metro', 'Metro', '#00366b', '#e6ebf0', 'https://www.metro-tr.com'],
     ['tarimkredi', 'Tarım Kredi', '#008542', '#e6f3eb', 'https://www.tarimkredi-kooperatif.market'],
+    ['mopas', 'Mopaş', '#E30613', '#FCE8EA', 'https://mopas.com.tr'],
   ];
 
   const insertMarket = db.prepare('INSERT OR IGNORE INTO markets (id, name, color, bg_color, base_url) VALUES (?, ?, ?, ?, ?)');
@@ -244,7 +245,7 @@ export function getBaseMatchStr(normalized) {
 }
 
 // Helper: insert or update product and return product ID
-export function upsertProduct(db, { name, brand, category, barcode, imageUrl, sourceUrl, nutritionEnergy, nutritionCarbs, nutritionProtein, nutritionFat, ingredients }) {
+export function upsertProduct(db, { name, brand, category, barcode, imageUrl, sourceUrl, nutritionEnergy, nutritionCarbs, nutritionProtein, nutritionFat, ingredients, description }) {
   const normalized = normalizeName(name);
   const matchStr = getBaseMatchStr(normalized);
 
@@ -309,6 +310,7 @@ export function upsertProduct(db, { name, brand, category, barcode, imageUrl, so
         nutrition_protein = COALESCE(nutrition_protein, ?),
         nutrition_fat = COALESCE(nutrition_fat, ?),
         ingredients = COALESCE(ingredients, ?),
+        description = COALESCE(description, ?),
         updated_at = datetime("now") 
       WHERE id = ?`,
       [
@@ -320,14 +322,15 @@ export function upsertProduct(db, { name, brand, category, barcode, imageUrl, so
         nutritionProtein || null,
         nutritionFat || null,
         ingredients || null,
+        description || null,
         id
       ]
     );
     return id;
   }
 
-  db.run('INSERT INTO products (name, brand, category, barcode, image_url, source_url, nutrition_energy, nutrition_carbs, nutrition_protein, nutrition_fat, ingredients) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [name, brand || '', category || null, barcode || null, imageUrl || null, sourceUrl || null, nutritionEnergy || null, nutritionCarbs || null, nutritionProtein || null, nutritionFat || null, ingredients || null]);
+  db.run('INSERT INTO products (name, brand, category, barcode, image_url, source_url, nutrition_energy, nutrition_carbs, nutrition_protein, nutrition_fat, ingredients, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [name, brand || '', category || null, barcode || null, imageUrl || null, sourceUrl || null, nutritionEnergy || null, nutritionCarbs || null, nutritionProtein || null, nutritionFat || null, ingredients || null, description || null]);
 
   const result = db.exec('SELECT last_insert_rowid()');
   return result[0].values[0][0];

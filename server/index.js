@@ -28,7 +28,7 @@ app.get('/api/products', async (req, res) => {
       LEFT JOIN prices pr ON p.id = pr.product_id AND pr.date = (
         SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
       )
-      WHERE pr.price IS NOT NULL
+      WHERE pr.price IS NOT NULL AND p.image_url IS NOT NULL AND p.image_url != ''
     `;
 
         let query = `
@@ -41,7 +41,7 @@ app.get('/api/products', async (req, res) => {
         SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
       )
       LEFT JOIN markets m ON pr.market_id = m.id
-      WHERE pr.price IS NOT NULL
+      WHERE pr.price IS NOT NULL AND p.image_url IS NOT NULL AND p.image_url != ''
     `;
 
         const params = [];
@@ -97,7 +97,7 @@ app.get('/api/products', async (req, res) => {
             LEFT JOIN prices pr ON p.id = pr.product_id AND pr.date = (
                 SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = p.id AND pr2.market_id = pr.market_id
             )
-            WHERE pr.price IS NOT NULL
+            WHERE pr.price IS NOT NULL AND p.image_url IS NOT NULL AND p.image_url != ''
         `;
 
         const paginatedParams = [];
@@ -172,7 +172,7 @@ app.get('/api/products', async (req, res) => {
             return res.json([]);
         }
 
-        // Group by product
+        // Group by product (unified by barcode if possible)
         const productsMap = new Map();
         const columns = result[0].columns;
 
@@ -180,9 +180,11 @@ app.get('/api/products', async (req, res) => {
             const obj = {};
             columns.forEach((col, i) => obj[col] = row[i]);
 
-            if (!productsMap.has(obj.id)) {
-                productsMap.set(obj.id, {
-                    id: obj.id,
+            const groupKey = obj.barcode || `id_${obj.id}`;
+
+            if (!productsMap.has(groupKey)) {
+                productsMap.set(groupKey, {
+                    id: obj.id, // Primary ID for the link
                     name: obj.name,
                     brand: obj.brand,
                     category: obj.category,
@@ -197,15 +199,26 @@ app.get('/api/products', async (req, res) => {
                 const volInfo = extractVolumeInfo(obj.name);
                 const unitPrice = calculateUnitPrice(obj.price, volInfo);
 
-                productsMap.get(obj.id).prices.push({
-                    marketId: obj.market_id,
-                    marketName: obj.market_name,
-                    marketColor: obj.market_color,
-                    price: obj.price,
-                    originalPrice: obj.original_price,
-                    date: obj.date,
-                    unitPrice: unitPrice
-                });
+                // For the same market, keep only the cheapest price for this barcode group
+                const currentGroup = productsMap.get(groupKey);
+                const existingMarketPrice = currentGroup.prices.find(p => p.marketId === obj.market_id);
+
+                if (!existingMarketPrice || existingMarketPrice.price > obj.price) {
+                    if (existingMarketPrice) {
+                        // Remove the more expensive one
+                        currentGroup.prices = currentGroup.prices.filter(p => p.marketId !== obj.market_id);
+                    }
+
+                    currentGroup.prices.push({
+                        marketId: obj.market_id,
+                        marketName: obj.market_name,
+                        marketColor: obj.market_color,
+                        price: obj.price,
+                        originalPrice: obj.original_price,
+                        date: obj.date,
+                        unitPrice: unitPrice
+                    });
+                }
             }
         }
 
@@ -277,7 +290,7 @@ app.get('/api/products/:id', async (req, res) => {
         const db = await getDb();
         const { id } = req.params;
 
-        // Product info
+        // 1. Get current product info
         const productResult = db.exec('SELECT * FROM products WHERE id = ?', [id]);
         if (!productResult.length || !productResult[0].values.length) {
             return res.status(404).json({ error: 'Ürün bulunamadı' });
@@ -288,27 +301,45 @@ app.get('/api/products/:id', async (req, res) => {
         const product = {};
         cols.forEach((col, i) => product[col] = row[i]);
 
-        // Current prices
+        // 2. Find all IDs sharing the same barcode or name
+        let relatedIds = [id];
+        if (product.barcode) {
+            const relatedResult = db.exec('SELECT id FROM products WHERE barcode = ?', [product.barcode]);
+            if (relatedResult.length && relatedResult[0].values.length) {
+                relatedIds = relatedResult[0].values.map(v => v[0]);
+            }
+        }
+
+        const idsPlaceholder = relatedIds.map(() => '?').join(',');
+
+        // 3. Fetch latest prices for ALL related IDs
         const pricesResult = db.exec(`
-      SELECT pr.*, m.name as market_name, m.color as market_color
-      FROM prices pr
-      JOIN markets m ON pr.market_id = m.id
-      WHERE pr.product_id = ? AND pr.date = (
-        SELECT MAX(pr2.date) FROM prices pr2 WHERE pr2.product_id = ? AND pr2.market_id = pr.market_id
-      )
-      ORDER BY pr.price ASC
-    `, [id, id]);
+            SELECT pr.*, m.name as market_name, m.color as market_color
+            FROM prices pr
+            JOIN markets m ON pr.market_id = m.id
+            WHERE pr.product_id IN (${idsPlaceholder}) AND pr.date = (
+                SELECT MAX(pr2.date) 
+                FROM prices pr2 
+                WHERE pr2.product_id = pr.product_id AND pr2.market_id = pr.market_id
+            )
+            ORDER BY pr.price ASC
+        `, relatedIds);
 
         product.prices = [];
         if (pricesResult.length && pricesResult[0].values.length) {
             const pCols = pricesResult[0].columns;
-            product.prices = pricesResult[0].values.map(r => {
+
+            // Map and filter to group by market (take cheapest entry per market if multiple IDs match)
+            const marketMap = new Map();
+
+            pricesResult[0].values.forEach(r => {
                 const obj = {};
                 pCols.forEach((col, i) => obj[col] = r[i]);
+
                 const volInfo = extractVolumeInfo(product.name);
                 const unitPrice = calculateUnitPrice(obj.price, volInfo);
 
-                return {
+                const priceObj = {
                     marketId: obj.market_id,
                     marketName: obj.market_name,
                     marketColor: obj.market_color,
@@ -317,7 +348,13 @@ app.get('/api/products/:id', async (req, res) => {
                     date: obj.date,
                     unitPrice: unitPrice
                 };
+
+                if (!marketMap.has(obj.market_id) || marketMap.get(obj.market_id).price > obj.price) {
+                    marketMap.set(obj.market_id, priceObj);
+                }
             });
+
+            product.prices = Array.from(marketMap.values()).sort((a, b) => a.price - b.price);
         }
 
         // Price history (last 30 days, grouped by date)

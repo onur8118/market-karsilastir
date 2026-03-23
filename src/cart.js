@@ -5,7 +5,24 @@ const state = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🛒 Cart JS Loaded');
     renderCart();
+
+    // Clear cart button listener - try multiple times just in case
+    const attachClearListener = () => {
+        const clearBtn = document.querySelector('.cart-clear-btn');
+        if (clearBtn) {
+            console.log('✅ Clear button found, attaching listener');
+            clearBtn.addEventListener('click', (e) => {
+                console.log('🗑️ Clear button clicked');
+                clearCart();
+            });
+        } else {
+            console.warn('⚠️ Clear button NOT found in DOM');
+        }
+    };
+
+    attachClearListener();
 
     // Listen for storage changes from other tabs
     window.addEventListener('storage', (e) => {
@@ -104,19 +121,41 @@ function updateSummary() {
     }
 }
 
-window.removeFromCart = (index) => {
+function removeFromCart(index) {
     state.cart.splice(index, 1);
     localStorage.setItem('fiyatradar_cart', JSON.stringify(state.cart));
     renderCart();
-};
+}
 
-window.clearCart = () => {
-    if (confirm('Tüm listeyi temizlemek istediğinize emin misiniz?')) {
+function clearCart() {
+    const clearBtn = document.querySelector('.cart-clear-btn');
+    if (!clearBtn) return;
+
+    if (clearBtn.dataset.confirm === 'true') {
         state.cart = [];
         localStorage.setItem('fiyatradar_cart', JSON.stringify(state.cart));
         renderCart();
+    } else {
+        clearBtn.dataset.confirm = 'true';
+        clearBtn.innerHTML = '⚠️ Emin misiniz? (Silmek için tekrar tıkla)';
+        clearBtn.style.background = '#E53E3E';
+        clearBtn.style.color = 'white';
+
+        // Reset after 3 seconds if not clicked again
+        setTimeout(() => {
+            if (clearBtn.dataset.confirm === 'true') {
+                clearBtn.dataset.confirm = 'false';
+                clearBtn.innerHTML = '🗑️ Listeyi Temizle';
+                clearBtn.style.background = '#FFF5F5';
+                clearBtn.style.color = '#E53E3E';
+            }
+        }, 3000);
     }
-};
+}
+
+// Keep window assignments for backward compatibility if needed by inline handlers
+window.removeFromCart = removeFromCart;
+window.clearCart = clearCart;
 
 function formatPrice(price) {
     return (price || 0).toFixed(2).replace('.', ',');
