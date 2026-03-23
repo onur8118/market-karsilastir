@@ -57,11 +57,18 @@ async function processProduct(product) {
                     // 1. Ürün ismini al
                     foundName = $el.find('.product-name, h6').first().text().trim();
 
-                    // 2. Resimden barkod çek (urunler/BARKOD.jpg)
+                    // 2. Resimden veya linkten barkod çek (urunler/BARKOD.jpg veya /fiyat/BARKOD-isim)
                     const imgSrc = $el.find('img.product-image').attr('src');
+                    const href = $el.find('a').attr('href');
+
                     if (imgSrc) {
                         const imgMatch = imgSrc.match(/\/(\d{8,14})\./);
                         if (imgMatch) foundBarcode = imgMatch[1];
+                    }
+
+                    if (!foundBarcode && href) {
+                        const hrefMatch = href.match(/\/fiyat\/(\d{8,14})-/);
+                        if (hrefMatch) foundBarcode = hrefMatch[1];
                     }
 
                     // 3. Butondaki addToCart parametresinden çek (Eğer resimden bulunamadıysa)

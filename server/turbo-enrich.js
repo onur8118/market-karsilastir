@@ -22,7 +22,8 @@ function runBatch(id) {
         console.log(`[Worker ${id}] Starting batch...`);
         const child = exec(cmd, { cwd: process.cwd() });
 
-        // child.stdout.on('data', d => process.stdout.write(`[Worker ${id}] ${d}`));
+        child.stdout.on('data', d => process.stdout.write(`[Worker ${id}] ${d}`));
+        child.stderr.on('data', d => process.stderr.write(`[Worker ${id}] ERROR: ${d}`));
         child.on('close', (code) => {
             console.log(`[Worker ${id}] Finished with code ${code}`);
             resolve(code);

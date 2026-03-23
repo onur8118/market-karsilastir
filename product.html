@@ -34,14 +34,20 @@
         <div class="product-detail-grid" id="productDetail">
             <!-- Left: Image Section -->
             <div class="detail-image-box" id="detailImage">
-                <div style="height: 400px; background: #F8F9FA; border-radius: 12px; opacity: 0.5;"></div>
-                <div class="barcode-row" style="margin-top: 20px; width: 100%; justify-content: center;">
-                    <span class="barcode-visual">📋</span>
-                    <div>
+                <div id="productImageContainer">
+                    <div style="height: 400px; background: #F8F9FA; border-radius: 12px; opacity: 0.5;"></div>
+                </div>
+                <div class="barcode-row"
+                    style="margin-top: 24px; width: 100%; display: flex; align-items: center; gap: 16px; justify-content: center; background: linear-gradient(145deg, #ffffff, #f8f9fa); padding: 20px; border-radius: 16px; border: 2px dashed rgba(0, 136, 204, 0.3); box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                    <span class="barcode-visual"
+                        style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">📋</span>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
                         <div
-                            style="font-size: 10px; font-weight: 800; color: var(--text-light); text-transform: uppercase;">
+                            style="font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">
                             Barkod Numarası</div>
-                        <div class="barcode-text" id="detailBarcode">...</div>
+                        <div class="barcode-text" id="detailBarcode"
+                            style="font-family: 'Inter', sans-serif; font-size: 24px; font-weight: 900; color: var(--primary); letter-spacing: 3px; text-shadow: 1px 1px 0px rgba(0,0,0,0.05);">
+                            ...</div>
                     </div>
                 </div>
             </div>

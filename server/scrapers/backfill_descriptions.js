@@ -95,6 +95,8 @@ async function backfill() {
             if (desc) {
                 db.run('UPDATE products SET description = ? WHERE id = ?', [desc, id]);
                 found++;
+            } else {
+                db.run('UPDATE products SET description = ? WHERE id = ?', ['Bilgi Yok', id]);
             }
             completed++;
 

@@ -91,7 +91,7 @@ async function repairNutrition() {
                 UPDATE products 
                 SET nutrition_energy = ?, nutrition_carbs = ?, nutrition_protein = ?, nutrition_fat = ?, ingredients = ?
                 WHERE id = ?`,
-                [data.energy, data.carbs, data.protein, data.fat, data.ingredients, p.id]
+                [data.energy || 'Bilgi Yok', data.carbs || 'Bilgi Yok', data.protein || 'Bilgi Yok', data.fat || 'Bilgi Yok', data.ingredients || 'Bilgi Yok', p.id]
             );
 
             console.log(`   ✨ Güncellendi: ${data.carbs || '-'} g Karb`);

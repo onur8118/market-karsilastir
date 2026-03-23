@@ -9,7 +9,6 @@ import { scrapeSok } from './scrapers/sok.js';
 import { scrapeA101 } from './scrapers/a101.js';
 import { scrapeMigros } from './scrapers/migros.js';
 import { scrapeCarrefoursa } from './scrapers/carrefoursa.js';
-import { scrapeHappyCenter } from './scrapers/happycenter.js';
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -19,7 +18,7 @@ async function main() {
     console.log('='.repeat(60));
     console.log('🛒 TÜM MARKETLER KAPSAMLI KAZIMA BAŞLIYOR');
     console.log('='.repeat(60));
-    console.log('Sıra: ŞOK → A101 → Migros → CarrefourSA → Happy Center');
+    console.log('Sıra: ŞOK → A101 → Migros → CarrefourSA');
     console.log(`Başlangıç: ${new Date().toLocaleString('tr-TR')}\n`);
 
     const db = await getDb();
@@ -83,19 +82,6 @@ async function main() {
         results.carrefoursa = { productsFound: 0, pricesUpdated: 0, error: err.message };
     }
 
-    // 5. Happy Center
-    try {
-        console.log('\n' + '='.repeat(60));
-        console.log('🟢 5/5 — Happy Center');
-        console.log('='.repeat(60));
-        results.happycenter = await scrapeHappyCenter(db);
-        saveDb();
-        console.log(`✅ Happy Center tamamlandı: ${results.happycenter.productsFound} ürün`);
-    } catch (err) {
-        console.error('❌ Happy Center genel hata:', err.message);
-        results.happycenter = { productsFound: 0, pricesUpdated: 0, error: err.message };
-    }
-
     // Özet
     console.log('\n' + '='.repeat(60));
     console.log('📊 KAZIMA ÖZET RAPORU');
@@ -104,8 +90,7 @@ async function main() {
         { id: 'sok', label: '🟡 ŞOK' },
         { id: 'a101', label: '🔵 A101' },
         { id: 'migros', label: '🟠 Migros' },
-        { id: 'carrefoursa', label: '🔷 CarrefourSA' },
-        { id: 'happycenter', label: '🟢 Happy Center' },
+        { id: 'carrefoursa', label: '🔷 CarrefourSA' }
     ];
     let grandTotal = 0;
     for (const m of markets) {

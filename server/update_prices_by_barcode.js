@@ -6,7 +6,6 @@ import { fetchPriceByBarcode as fetchMigros } from './scrapers/migros.js';
 import { fetchPriceByBarcode as fetchA101 } from './scrapers/a101.js';
 import { fetchPriceByBarcode as fetchSok } from './scrapers/sok.js';
 import { fetchPriceByBarcode as fetchCarrefoursa } from './scrapers/carrefoursa.js';
-import { fetchPriceByBarcode as fetchHappyCenter } from './scrapers/happycenter.js';
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -65,8 +64,7 @@ export async function updatePricesByBarcode() {
                 { id: 'migros', name: 'Migros', fetcher: fetchMigros },
                 { id: 'a101', name: 'A101', fetcher: fetchA101 },
                 { id: 'sok', name: 'ŞOK', fetcher: fetchSok },
-                { id: 'carrefoursa', name: 'CarrefourSA', fetcher: fetchCarrefoursa },
-                { id: 'happycenter', name: 'Happy Center', fetcher: fetchHappyCenter }
+                { id: 'carrefoursa', name: 'CarrefourSA', fetcher: fetchCarrefoursa }
             ];
 
             for (const market of marketCheckers) {

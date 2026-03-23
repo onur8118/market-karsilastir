@@ -39,12 +39,10 @@ const MARKET_ID_MAP = {
     'Şok': 'sok',
     'Migros': 'migros',
     'CarrefourSA': 'carrefoursa',
-    'Happy Center': 'happycenter',
     'Onur Market': 'onur',
     'Bizim': 'bizim',
     'File': 'file',
     'Metro': 'metro',
-    'Tarım Kredi': 'tarimkredi',
     'Mopaş': 'mopas',
     'Bizim Market': 'bizim'
 };
@@ -213,7 +211,7 @@ export async function scrapeMarketKarsilastir() {
     const stats = { productsFound: 0, pricesUpdated: 0 };
 
     // Progress tracking
-    const progressFile = path.join(process.cwd(), 'server', 'scrapers', 'progress.json');
+    const progressFile = path.join(process.cwd(), 'scrapers', 'progress.json');
     let progress = { categoryIndex: 0, page: 1 };
     if (fs.existsSync(progressFile)) {
         try {

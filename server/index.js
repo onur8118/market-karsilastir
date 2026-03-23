@@ -47,12 +47,11 @@ app.get('/api/products', async (req, res) => {
         const params = [];
 
         if (q) {
-            let searchTerm = q.toLowerCase();
-            // Normalize common search terms
-            searchTerm = searchTerm.replace(/\bkola\b/g, 'cola');
+            // Normalize: lower with TR locale, and also create an ASCII fallback
+            const rawQ = q.toLocaleLowerCase('tr-TR');
+            const searchTerm = `%${rawQ}%`;
 
-            searchTerm = `%${searchTerm}%`;
-            const searchClause = ` AND (LOWER(p.name) LIKE ? OR LOWER(p.brand) LIKE ? OR p.barcode LIKE ?)`;
+            const searchClause = ` AND (TR_LOWER(p.name) LIKE ? OR TR_LOWER(p.brand) LIKE ? OR p.barcode LIKE ?)`;
             query += searchClause;
             queryCount += searchClause;
             params.push(searchTerm, searchTerm, searchTerm);
@@ -102,19 +101,18 @@ app.get('/api/products', async (req, res) => {
 
         const paginatedParams = [];
         if (q) {
-            let normQ = q.toLowerCase();
-            normQ = normQ.replace(/\bkola\b/g, 'cola');
+            const normQ = q.toLocaleLowerCase('tr-TR');
             const searchTerm = `%${normQ}%`;
             paginatedProductsQuery += ` 
                 AND (
-                    LOWER(p.name) LIKE ? 
-                    OR LOWER(p.brand) LIKE ? 
+                    TR_LOWER(p.name) LIKE ? 
+                    OR TR_LOWER(p.brand) LIKE ? 
                     OR p.barcode LIKE ?
                     OR p.id IN (
                         SELECT pr3.product_id 
                         FROM prices pr3 
                         JOIN markets m3 ON pr3.market_id = m3.id 
-                        WHERE LOWER(m3.name) LIKE ?
+                        WHERE TR_LOWER(m3.name) LIKE ?
                     )
                 )`;
             paginatedParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
@@ -260,11 +258,11 @@ app.get('/api/search/suggestions', async (req, res) => {
         const { q } = req.query;
         if (!q || q.length < 2) return res.json([]);
 
-        const searchTerm = `%${q.toLowerCase()}%`;
+        const searchTerm = `%${q.toLocaleLowerCase('tr-TR')}%`;
         const result = db.exec(`
             SELECT DISTINCT name, brand 
             FROM products 
-            WHERE LOWER(name) LIKE ? OR LOWER(brand) LIKE ?
+            WHERE TR_LOWER(name) LIKE ? OR TR_LOWER(brand) LIKE ?
             ORDER BY name ASC 
             LIMIT 8
         `, [searchTerm, searchTerm]);

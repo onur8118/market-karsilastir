@@ -51,11 +51,12 @@ function renderDetail() {
     document.getElementById('detailBarcode').textContent = p.barcode || '8690000000000';
 
     // Image
-    const imgBox = document.getElementById('detailImage');
+    const imgBox = document.getElementById('productImageContainer');
     const imgSrc = getProductImage(p);
     imgBox.innerHTML = `
         <img src="${imgSrc}" alt="${p.name}" 
-             onerror="this.onerror=null; this.src='/placeholder.png';">
+             onerror="this.onerror=null; this.src='/placeholder.png';"
+             style="width: 100%; height: auto; border-radius: 12px;">
     `;
 
     // Prices
@@ -167,7 +168,6 @@ function getMarketLogo(marketId) {
         'bizim': 'https://www.bizimtoptan.com.tr/Assets/Images/bizim-toptan-logo.svg',
         'metro': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Metro_Logo.svg/1200px-Metro_Logo.svg.png',
         'file': 'https://www.file.com.tr/assets/images/file-logo.png',
-        'happycenter': 'https://www.happy.com.tr/image/catalog/logo.png',
         'mopas': 'https://mopas.com.tr/assets/images/logo.png'
     };
     return marketLogos[marketId] || `https://ui-avatars.com/api/?name=${marketId}`;

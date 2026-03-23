@@ -42,13 +42,6 @@ export const markets = [
     logo: 'https://www.file.com.tr/assets/images/file-logo.png'
   },
   {
-    id: 'happycenter',
-    name: 'Happy Center',
-    color: '#009639',
-    bgColor: '#e6f4eb',
-    logo: 'https://www.happy.com.tr/image/catalog/logo.png'
-  },
-  {
     id: 'bizim',
     name: 'Bizim Toptan',
     color: '#004a99',

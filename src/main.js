@@ -18,10 +18,8 @@ const state = {
     markets: [],
     loading: false,
     page: 1,
-    limit: 50,
+    limit: 30,
     total: 0,
-    hasMore: true,
-    loadingMore: false,
     cart: JSON.parse(localStorage.getItem('fiyatradar_cart') || '[]'),
 };
 
@@ -49,7 +47,6 @@ async function loadInitialData() {
 
         renderMarketDropdown();
         await loadProducts(true);
-        setupInfiniteScroll();
     } catch (err) {
         console.warn('Init error:', err);
         await loadProducts(true);
@@ -128,18 +125,18 @@ window.addEventListener('storage', (e) => {
 // ============================================
 // PRODUCT FETCHING & RENDERING
 // ============================================
-async function loadProducts(reset = false) {
-    if (reset) {
+async function loadProducts(resetToPage1 = false) {
+    if (resetToPage1) {
         state.page = 1;
-        state.products = [];
-        state.hasMore = true;
-        document.getElementById('productGrid').innerHTML = '';
     }
 
-    if (!state.hasMore || state.loadingMore) return;
-    state.loadingMore = true;
+    state.loading = true;
     const loadingEl = document.getElementById('loading');
-    if (loadingEl) loadingEl.style.display = 'block';
+    const grid = document.getElementById('productGrid');
+
+    if (loadingEl) loadingEl.style.display = 'flex';
+    grid.innerHTML = ''; // Clear for new page load
+    document.getElementById('paginationContainer').innerHTML = ''; // Hide pagination during load
 
     try {
         const query = new URLSearchParams({
@@ -154,18 +151,20 @@ async function loadProducts(reset = false) {
         const data = await fetchAPI(`/products?${query.toString()}`);
 
         if (data && data.products) {
-            state.products = [...state.products, ...data.products];
+            state.products = data.products;
             state.total = data.pagination.total;
-            state.hasMore = data.pagination.hasMore;
-            state.page++;
 
-            renderProducts(data.products, reset);
+            renderProducts(data.products, true);
             updateResultsInfo();
+            renderPagination();
+
+            // Smooth scroll to top of grid
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     } catch (err) {
         console.error('Fetch error:', err);
     } finally {
-        state.loadingMore = false;
+        state.loading = false;
         if (loadingEl) loadingEl.style.display = 'none';
     }
 }
@@ -185,7 +184,7 @@ function renderProducts(newProducts = [], reset = false) {
         const imgSrc = getProductImage(product);
 
         return `
-            <div class="product-card" onclick="window.open('/product.html?id=${product.id}', '_blank')">
+            <div class="product-card" onclick="window.location.href = '/product.html?id=${product.id}'">
                 <div class="card-image">
                     <img src="${imgSrc}" alt="${product.name}" 
                          loading="lazy"
@@ -222,7 +221,7 @@ function setupEventListeners() {
     searchInput.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-            state.searchQuery = e.target.value.trim().toLowerCase();
+            state.searchQuery = e.target.value.trim();
             loadProducts(true);
             const url = new URL(window.location);
             if (state.searchQuery) url.searchParams.set('q', state.searchQuery);
@@ -257,29 +256,90 @@ function setupEventListeners() {
     }
 }
 
-function setupInfiniteScroll() {
-    const observer = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && state.hasMore && !state.loadingMore) loadProducts();
-    }, { threshold: 0.1 });
-    const scrollEnd = document.getElementById('scrollEnd');
-    if (scrollEnd) observer.observe(scrollEnd);
+window.goToPage = (page) => {
+    state.page = page;
+    loadProducts(false);
+};
+
+function renderPagination() {
+    const container = document.getElementById('paginationContainer');
+    if (!container) return;
+
+    const totalPages = Math.ceil(state.total / state.limit);
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // Prev Button
+    html += `<button class="page-btn" ${state.page === 1 ? 'disabled' : `onclick="goToPage(${state.page - 1})"`}>Önceki</button>`;
+
+    // Page Numbers (Show max 5 pages around current)
+    let startPage = Math.max(1, state.page - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+
+    if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+    }
+
+    if (startPage > 1) {
+        html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) html += `<span style="color: var(--text-muted); padding: 0 5px;">...</span>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="page-btn ${i === state.page ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span style="color: var(--text-muted); padding: 0 5px;">...</span>`;
+        html += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    // Next Button
+    html += `<button class="page-btn" ${state.page === totalPages ? 'disabled' : `onclick="goToPage(${state.page + 1})"`}>Sonraki</button>`;
+
+    container.innerHTML = html;
 }
 
 function renderMarketDropdown() {
     const container = document.getElementById('marketFilters');
     if (!container) return;
 
+    // Inline SVG logos — no external dependency, always works
+    const mkSvg = (letter, bg, fg = 'white') =>
+        `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><rect width='28' height='28' rx='6' fill='${encodeURIComponent(bg)}'/><text x='14' y='20' text-anchor='middle' font-size='14' font-weight='900' font-family='Arial,sans-serif' fill='${fg}'>${letter}</text></svg>`;
+
+    const MARKET_LOGOS = {
+        a101: 'https://marketkarsilastir.com/uploads/markets/a101.png',
+        sok: 'https://marketkarsilastir.com/uploads/markets/sok.png',
+        migros: 'https://marketkarsilastir.com/uploads/markets/migros.png',
+        carrefoursa: 'https://marketkarsilastir.com/uploads/markets/carrefour.png',
+        metro: 'https://marketkarsilastir.com/uploads/markets/metro.png',
+        bizim: 'https://marketkarsilastir.com/uploads/markets/bizimToptan.png',
+        file: 'https://marketkarsilastir.com/uploads/markets/file.png',
+        mopas: 'https://marketkarsilastir.com/uploads/markets/mopas.png',
+        onur: mkSvg('O', '#f26522'),
+    };
+
     container.innerHTML = `
         <div class="sidebar-item ${!state.activeMarket ? 'active' : ''}" data-market="">
             <span class="market-dot" style="background: #ccc"></span>
             Tüm Marketler
         </div>
-        ${state.markets.map(m => `
+        ${state.markets.map(m => {
+        const logoUrl = MARKET_LOGOS[m.id];
+        return `
             <div class="sidebar-item ${state.activeMarket == m.id ? 'active' : ''}" data-market="${m.id}">
-                <span class="market-dot" style="background: ${m.color}"></span>
+                ${logoUrl ? `<img class="market-logo-small" src="${logoUrl}" alt="${m.name}"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                <span class="market-dot" style="background: ${m.color}; display:none"></span>`
+                : `<span class="market-dot" style="background: ${m.color}"></span>`}
                 ${m.name}
-            </div>
-        `).join('')}
+            </div>`;
+    }).join('')}
     `;
 
     // Add listeners to new elements
